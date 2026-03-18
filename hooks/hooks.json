@@ -1,0 +1,14 @@
+[
+  {
+    "event": "PostToolUse",
+    "matcher": "mcp__plugin_claude-mem_mcp-search__.*",
+    "_note": "Tracks access to claude-mem observations via MCP tools. Adjust matcher prefix if plugin is installed under a different name.",
+    "hooks": [
+      {
+        "type": "command",
+        "command": "bun ${CLAUDE_PLUGIN_ROOT}/hooks/post-tool-use.ts",
+        "timeout": 5000
+      }
+    ]
+  }
+]
