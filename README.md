@@ -4,6 +4,28 @@
 
 ![github-banner-team-memory.png](resources/github-banner-team-memory.png)
 
+---
+
+## Table of Contents
+
+- [Why This Exists](#why-this-exists)
+- [What It Does](#what-it-does)
+- [Quick Start](#quick-start)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [CLI Reference](#cli-reference)
+- [Web Dashboard](#web-dashboard)
+- [Eviction & Scoring](#eviction--scoring)
+- [Destination Patterns](#destination-patterns)
+- [CI/CD Integration](#cicd-integration)
+- [Scheduling](#scheduling)
+- [Maintenance](#maintenance)
+- [Security](#security)
+- [Architecture](#architecture)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
+
+---
 
 ## Why This Exists
 
@@ -237,6 +259,33 @@ mem-sync ci-merge \
 
 The `--retention-days` flag controls how long processed contribution files are kept before automatic cleanup (default: 30 days).
 
+## Web Dashboard
+
+Launch a local web dashboard to visualize your team's shared memories, access patterns, and sync activity.
+
+```bash
+mem-sync dashboard              # http://localhost:3737
+mem-sync dashboard --port 8080  # custom port
+```
+
+### Tabs
+
+| Tab | What it shows |
+|-----|---------------|
+| **Overview** | Stat cards (observations, sessions, access events, DB size), project cards with merge cap progress bars, health indicators |
+| **Observations** | Full-text search, type/project filters, paginated table with eviction scores |
+| **Analytics** | Type distribution (doughnut chart), activity timeline (line chart), top observations by score (horizontal bar), developer contributions (grouped bar) |
+| **Access Map** | GitHub-style heatmap of daily access patterns (6 months), top 20 most accessed observations with bar indicators |
+| **Sync History** | Monthly export/import stacked bar chart, recent exports table, recent imports table |
+
+### Design
+
+- Dark theme with glassmorphism cards and gradient accents
+- Chart.js 4 for interactive visualizations
+- Inter font, animated counters, hover effects
+- Responsive layout (sidebar collapses on mobile)
+- Zero dependencies — reads directly from local SQLite databases
+
 ## Eviction & Scoring
 
 ### The Problem
@@ -398,10 +447,14 @@ Only observations matching your configured filters (types, keywords, tags) are e
 
 ## Architecture
 
+- **Dual runtime** — works on Bun (v1.0+) and Node.js (v18+) via `src/core/compat.ts` abstraction layer
+- **SQLite** — `bun:sqlite` on Bun, `better-sqlite3` on Node.js (auto-detected at startup)
 - **Export + hook are read-only** on claude-mem's DB
 - **Import is the only write operation** — uses transactions with rollback safety
 - **access.db** is a separate tracking database — never touches claude-mem's schema
 - **`PRAGMA busy_timeout = 5000`** on all connections for WAL contention handling
+- **Multi-provider git** — GitHub, GitLab, Bitbucket with optional self-hosted host override
+- **Array-based process spawning** — all shell commands use `child_process.spawn` with array args (no shell injection)
 
 ## Troubleshooting
 
