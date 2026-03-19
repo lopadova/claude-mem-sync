@@ -281,6 +281,124 @@ function handleDevContributions(
   sendJson(res, { contributions: data });
 }
 
+// -- Observation detail --
+
+function handleObservationDetail(
+  memDb: SqliteDatabase,
+  _accessDb: SqliteDatabase,
+  _config: ReturnType<typeof loadConfig>,
+  _query: Record<string, string>,
+  res: ServerResponse,
+  id: number,
+): void {
+  const row = memDb.prepare(
+    "SELECT * FROM observations WHERE id = ?",
+  ).get(id);
+  if (!row) {
+    sendError(res, "Observation not found", 404);
+    return;
+  }
+  sendJson(res, row);
+}
+
+// -- FTS5 Search --
+
+function handleSearch(
+  memDb: SqliteDatabase,
+  _accessDb: SqliteDatabase,
+  _config: ReturnType<typeof loadConfig>,
+  query: Record<string, string>,
+  res: ServerResponse,
+): void {
+  const q = query.q || "";
+  if (!q.trim()) {
+    sendJson(res, { results: [], total: 0, query: q });
+    return;
+  }
+
+  const page = Math.max(1, parseInt(query.page || "1", 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(query.limit || "20", 10) || 20));
+  const offset = (page - 1) * limit;
+  const project = query.project || null;
+  const type = query.type || null;
+
+  // Use FTS5 search on observations_fts
+  // observations_fts indexes: title, subtitle, narrative, text, facts, concepts
+  try {
+    // Build FTS5 match query - escape special chars for safety
+    const ftsQuery = q.replace(/['"]/g, "");
+
+    let sql = `SELECT o.id, o.type, o.title, o.subtitle, o.narrative, o.project, o.created_at_epoch,
+               snippet(observations_fts, 2, '<mark>', '</mark>', '...', 40) as snippet
+               FROM observations_fts fts
+               JOIN observations o ON o.id = fts.rowid
+               WHERE observations_fts MATCH ?`;
+    const params: (string | number)[] = [ftsQuery];
+
+    if (project) {
+      sql += " AND o.project = ?";
+      params.push(project);
+    }
+    if (type) {
+      sql += " AND o.type = ?";
+      params.push(type);
+    }
+
+    // Count total
+    const countSql = sql.replace(/SELECT.*?FROM/, "SELECT COUNT(*) as total FROM");
+    const countRow = memDb.prepare(countSql).get(...params) as { total: number } | null;
+    const total = countRow?.total ?? 0;
+
+    // Paginated results
+    sql += " ORDER BY rank LIMIT ? OFFSET ?";
+    params.push(limit, offset);
+    const rows = memDb.prepare(sql).all(...params);
+
+    sendJson(res, {
+      results: rows,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      query: q,
+    });
+  } catch (err) {
+    // FTS5 query syntax error - fall back to LIKE search
+    let sql = `SELECT id, type, title, subtitle, narrative, project, created_at_epoch
+               FROM observations
+               WHERE (title LIKE ? OR narrative LIKE ? OR text LIKE ?)`;
+    const likeParam = "%" + q + "%";
+    const params: (string | number)[] = [likeParam, likeParam, likeParam];
+
+    if (project) {
+      sql += " AND project = ?";
+      params.push(project);
+    }
+    if (type) {
+      sql += " AND type = ?";
+      params.push(type);
+    }
+
+    const countSql = sql.replace(/SELECT.*?FROM/, "SELECT COUNT(*) as total FROM");
+    const countRow = memDb.prepare(countSql).get(...params) as { total: number } | null;
+    const total = countRow?.total ?? 0;
+
+    sql += " ORDER BY created_at_epoch DESC LIMIT ? OFFSET ?";
+    params.push(limit, offset);
+    const rows = memDb.prepare(sql).all(...params);
+
+    sendJson(res, {
+      results: rows,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      query: q,
+      fallback: true,
+    });
+  }
+}
+
 // -- Route table --
 
 type RouteHandler = (
@@ -301,6 +419,7 @@ const ROUTES: Record<string, RouteHandler> = {
   "/api/analytics/timeline": handleTimeline,
   "/api/analytics/scores": handleScores,
   "/api/analytics/devs": handleDevContributions,
+  "/api/search": handleSearch,
 };
 
 // -- Server --
@@ -349,11 +468,23 @@ export async function startDashboardServer(port: number): Promise<void> {
       return;
     }
 
-    // API routes
+    // API routes (static)
     const handler = ROUTES[pathname];
     if (handler) {
       try {
         handler(memDb, accessDb, config, query, res);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        sendError(res, message, 500);
+      }
+      return;
+    }
+
+    // Dynamic route: /api/observations/:id
+    const obsMatch = pathname.match(/^\/api\/observations\/(\d+)$/);
+    if (obsMatch) {
+      try {
+        handleObservationDetail(memDb, accessDb, config, query, res, parseInt(obsMatch[1], 10));
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         sendError(res, message, 500);

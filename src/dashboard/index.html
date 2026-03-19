@@ -27,6 +27,16 @@
 .pjg{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}.pjc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:18px;transition:all .2s}.pjc:hover{border-color:rgba(99,102,241,.3)}.pn{font-size:15px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:8px}.pm{font-size:12px;color:var(--txm);margin-bottom:4px}.pb{height:4px;background:var(--hover);border-radius:2px;margin-top:10px;overflow:hidden}.pf{height:100%;background:linear-gradient(90deg,var(--acc),var(--vio));border-radius:2px;transition:width .5s}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}.dot.ak{background:var(--ok);animation:pu 2s infinite}@keyframes pu{0%,100%{opacity:1}50%{opacity:.4}}
 .hig{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}.hii{display:flex;align-items:center;gap:10px;padding:12px;background:var(--card);border:1px solid var(--brd);border-radius:var(--rs);font-size:13px}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:50;display:none;align-items:center;justify-content:center}.modal-overlay.show{display:flex}
+.modal{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);max-width:800px;width:90%;max-height:85vh;overflow-y:auto;padding:24px;position:relative}
+.modal-close{position:absolute;top:12px;right:16px;background:none;border:none;color:var(--txm);font-size:20px;cursor:pointer;padding:4px 8px;border-radius:4px}.modal-close:hover{background:var(--hover);color:var(--tx)}
+.modal h2{font-size:18px;font-weight:700;margin-bottom:4px;padding-right:30px}.modal .meta{font-size:12px;color:var(--txm);margin-bottom:16px}
+.modal .field{margin-bottom:14px}.modal .field-label{font-size:11px;font-weight:600;color:var(--txs);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}.modal .field-value{font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.modal .field-value a{color:var(--accl);text-decoration:none}.modal .field-value a:hover{text-decoration:underline}
+.modal .field-value mark{background:rgba(99,102,241,.25);color:var(--tx);padding:1px 3px;border-radius:2px}
+.search-results .sr{padding:14px;border-bottom:1px solid var(--brd);cursor:pointer;transition:background .15s}.search-results .sr:hover{background:var(--hover)}
+.search-results .sr-title{font-size:14px;font-weight:600;margin-bottom:4px}.search-results .sr-meta{font-size:12px;color:var(--txm)}.search-results .sr-snippet{font-size:13px;color:var(--txs);margin-top:4px;line-height:1.5}
+.search-results .sr-snippet mark{background:rgba(99,102,241,.25);color:var(--tx);padding:1px 3px;border-radius:2px}
 @media(max-width:900px){.cg{grid-template-columns:1fr}}@media(max-width:768px){.sb{display:none}.mn{margin-left:0}}
 </style>
 </head>
@@ -36,6 +46,7 @@
 <nav class="nav">
 <div class="ni a" data-tab="overview"><span class="nic">&#x2302;</span> Overview</div>
 <div class="ni" data-tab="observations"><span class="nic">&#x2630;</span> Observations</div>
+<div class="ni" data-tab="search"><span class="nic">&#x1F50E;</span> Search</div>
 <div class="ni" data-tab="analytics"><span class="nic">&#x2616;</span> Analytics</div>
 <div class="ni" data-tab="access"><span class="nic">&#x2604;</span> Access Map</div>
 <div class="ni" data-tab="sync"><span class="nic">&#x21C4;</span> Sync History</div>
@@ -65,6 +76,14 @@
 <div class="cd"><div class="ct2"><span class="ic">&#x1F4E4;</span> Exports</div><div class="tw"><table><thead><tr><th>Project</th><th>Date</th><th>Obs</th><th>Pushed To</th></tr></thead><tbody id="etb"></tbody></table></div></div>
 <div class="cd"><div class="ct2"><span class="ic">&#x1F4E5;</span> Imports</div><div class="tw"><table><thead><tr><th>Project</th><th>Date</th><th>Obs</th><th>Source</th></tr></thead><tbody id="itb"></tbody></table></div></div></div>
 
+<div id="t-search" class="tc"><div class="pt">Search Memories</div>
+<div class="sbar"><input class="sinp" id="sq" placeholder="FTS5 search: try AND, OR, NOT, &quot;exact phrase&quot;, title:keyword..." type="text" style="flex:2"><select id="sf-type"><option value="">All Types</option><option>decision</option><option>bugfix</option><option>feature</option><option>discovery</option><option>refactor</option><option>change</option></select><select id="sf-proj"><option value="">All Projects</option></select><button onclick="doSearch()" style="padding:10px 20px;background:var(--acc);border:none;border-radius:var(--rs);color:#fff;cursor:pointer;font-size:13px;font-weight:600">Search</button></div>
+<div id="sr-info" style="font-size:13px;color:var(--txs);margin-bottom:12px"></div>
+<div class="cd"><div id="sr-results" class="search-results"></div><div class="pg"><span id="sr-count"></span><div><button id="sr-prev" disabled onclick="srPage--;doSearch()">&#8592; Prev</button> <button id="sr-next" onclick="srPage++;doSearch()">Next &#8594;</button></div></div></div>
+</div>
+
+<div class="modal-overlay" id="obs-modal"><div class="modal"><button class="modal-close" onclick="closeModal()">&#x2715;</button><h2 id="md-title"></h2><div class="meta" id="md-meta"></div><div id="md-body"></div></div></div>
+
 <div class="ht" id="htt"></div>
 </main>
 <script>
@@ -80,7 +99,7 @@ if(window.Chart){Chart.defaults.color="#94a3b8";Chart.defaults.borderColor="rgba
 QQ(".ni").forEach(function(e){e.addEventListener("click",function(){
   QQ(".ni").forEach(function(n){n.classList.remove("a")});QQ(".tc").forEach(function(t){t.classList.remove("a")});
   e.classList.add("a");Q("#t-"+e.dataset.tab).classList.add("a");
-  var fn={observations:LO,analytics:LA,access:LAC,sync:LS};if(fn[e.dataset.tab])fn[e.dataset.tab]();
+  var fn={observations:LO,analytics:LA,access:LAC,sync:LS,search:function(){}};if(fn[e.dataset.tab])fn[e.dataset.tab]();
 })});
 
 function AN(el,v,d){d=d||800;if(typeof v==="string"){el.textContent=v;return}
@@ -128,6 +147,52 @@ if(tl&&window.Chart){var x=tl.timeline||[];if(C.sy)C.sy.destroy();C.sy=new Chart
 if(hi){var et=Q("#etb");et.innerHTML="";(hi.exports||[]).slice(0,20).forEach(function(e){et.innerHTML+="<tr><td>"+e.project+"</td><td>"+D(e.exported_at)+"</td><td>"+e.observations_count+"</td><td style='max-width:200px;overflow:hidden;text-overflow:ellipsis'>"+(e.pushed_to||"-")+"</td></tr>"});
 var it=Q("#itb");it.innerHTML="";(hi.imports||[]).slice(0,20).forEach(function(i){it.innerHTML+="<tr><td>"+i.project+"</td><td>"+D(i.imported_at)+"</td><td>"+i.observations_count+"</td><td>"+(i.source_dev||"-")+"</td></tr>"})}
 })}
+
+// -- Linkify: make URLs, PR refs, commit hashes clickable --
+function linkify(text){if(!text)return"";
+return text.replace(/(https?:\/\/[^\s<>"')\]]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')
+.replace(/\b([a-f0-9]{7,40})\b/g,function(m){return m.length>=7?'<a href="https://github.com/search?q='+m+'&type=commits" target="_blank" rel="noopener">'+m+"</a>":m})
+.replace(/#(\d{1,6})\b/g,'<a href="https://github.com/search?q=%23$1&type=issues" target="_blank" rel="noopener">#$1</a>')}
+function escHtml(s){if(!s)return"";return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+
+// -- Search --
+var srPage=1;
+function doSearch(){var q=Q("#sq").value,t=Q("#sf-type").value,p=Q("#sf-proj").value;
+if(!q.trim()){Q("#sr-results").innerHTML="<div style='padding:20px;color:var(--txm);text-align:center'>Enter a search query above</div>";Q("#sr-info").textContent="";return}
+var params=new URLSearchParams({q:q,page:srPage,limit:20});if(t)params.set("type",t);if(p)params.set("project",p);
+F("/api/search?"+params).then(function(d){if(!d){Q("#sr-results").innerHTML="<div style='padding:20px;color:var(--err)'>Search failed</div>";return}
+Q("#sr-info").textContent=d.total+" results for \""+d.query+"\""+(d.fallback?" (LIKE fallback)":"");
+var el=Q("#sr-results");el.innerHTML="";
+if(d.results.length===0){el.innerHTML="<div style='padding:20px;color:var(--txm);text-align:center'>No results found</div>";return}
+d.results.forEach(function(r){var div=document.createElement("div");div.className="sr";div.onclick=function(){openDetail(r.id)};
+div.innerHTML="<div class='sr-title'><span class='"+BG(r.type)+"'>"+r.type+"</span> "+escHtml(r.title)+"</div><div class='sr-meta'>#"+r.id+" &middot; "+(r.project||"-")+" &middot; "+D(r.created_at_epoch)+"</div>"+(r.snippet?"<div class='sr-snippet'>"+r.snippet+"</div>":"");
+el.appendChild(div)});
+Q("#sr-count").textContent="Page "+d.page+" of "+d.totalPages;Q("#sr-prev").disabled=d.page<=1;Q("#sr-next").disabled=d.page>=d.totalPages})}
+Q("#sq").addEventListener("keydown",function(e){if(e.key==="Enter"){srPage=1;doSearch()}});
+
+// -- Observation Detail Modal --
+function openDetail(id){F("/api/observations/"+id).then(function(o){if(!o||o.error){alert("Could not load observation #"+id);return}
+Q("#md-title").textContent=o.title||"Observation #"+id;
+Q("#md-meta").innerHTML="<span class='"+BG(o.type)+"'>"+o.type+"</span> &middot; #"+o.id+" &middot; "+(o.project||"-")+" &middot; "+D(o.created_at_epoch);
+var body="";
+if(o.subtitle)body+="<div class='field'><div class='field-label'>Subtitle</div><div class='field-value'>"+linkify(escHtml(o.subtitle))+"</div></div>";
+if(o.narrative)body+="<div class='field'><div class='field-label'>Narrative</div><div class='field-value'>"+linkify(escHtml(o.narrative))+"</div></div>";
+if(o.text)body+="<div class='field'><div class='field-label'>Full Text</div><div class='field-value'>"+linkify(escHtml(o.text))+"</div></div>";
+if(o.facts)body+="<div class='field'><div class='field-label'>Facts</div><div class='field-value'>"+linkify(escHtml(o.facts))+"</div></div>";
+if(o.concepts)body+="<div class='field'><div class='field-label'>Concepts</div><div class='field-value'>"+linkify(escHtml(o.concepts))+"</div></div>";
+if(o.files_read)body+="<div class='field'><div class='field-label'>Files Read</div><div class='field-value'>"+escHtml(o.files_read)+"</div></div>";
+if(o.files_modified)body+="<div class='field'><div class='field-label'>Files Modified</div><div class='field-value'>"+escHtml(o.files_modified)+"</div></div>";
+Q("#md-body").innerHTML=body;Q("#obs-modal").classList.add("show")})}
+function closeModal(){Q("#obs-modal").classList.remove("show")}
+Q("#obs-modal").addEventListener("click",function(e){if(e.target===Q("#obs-modal"))closeModal()});
+document.addEventListener("keydown",function(e){if(e.key==="Escape")closeModal()});
+
+// -- Make observation rows clickable --
+var origLO=LO;
+LO=function(){origLO();setTimeout(function(){QQ("#otb tr").forEach(function(tr){var id=tr.querySelector("td");if(id){var num=parseInt(id.textContent.replace("#",""));if(num)tr.style.cursor="pointer",tr.onclick=function(){openDetail(num)}}})},100)};
+
+// -- Nav: add search handler --
+var origNav=null;
 
 LV();
 </script>
