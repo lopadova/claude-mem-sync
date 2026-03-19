@@ -95,6 +95,45 @@ function walkForIds(value: unknown, ids: Set<number>): void {
 }
 
 /**
+ * Extract the project name from the MCP tool input or response.
+ * claude-mem tools accept a `project` parameter and observations include a
+ * `project` field — use these directly instead of guessing from cwd.
+ */
+function extractProjectFromInput(
+  toolInput?: Record<string, unknown>,
+  toolResponse?: string,
+): string | null {
+  // 1. Check tool_input.project (most reliable — explicitly passed by Claude)
+  if (toolInput && typeof toolInput.project === "string" && toolInput.project) {
+    return toolInput.project;
+  }
+
+  // 2. Check tool_response for a project field in the JSON payload
+  if (toolResponse) {
+    try {
+      const parsed = JSON.parse(toolResponse);
+      // Single observation response
+      if (typeof parsed.project === "string" && parsed.project) {
+        return parsed.project;
+      }
+      // Array of observations — take the first project found
+      const items = parsed.observations ?? parsed.results ?? parsed.data;
+      if (Array.isArray(items)) {
+        for (const item of items) {
+          if (typeof item?.project === "string" && item.project) {
+            return item.project;
+          }
+        }
+      }
+    } catch {
+      // not JSON — skip
+    }
+  }
+
+  return null;
+}
+
+/**
  * Determine the project name from `cwd` by matching against enabled projects
  * in the config.  Heuristic: check if cwd path contains the project name or
  * the project's `memProject` value.
@@ -144,9 +183,12 @@ async function main(): Promise<void> {
   const ids = extractObservationIds(toolResponse);
   if (ids.length === 0) return;
 
-  const project = resolveProject(input.cwd ?? process.cwd());
+  // Priority: tool_input.project (from claude-mem MCP) > cwd-based resolution
+  const project =
+    extractProjectFromInput(input.tool_input, input.tool_response) ??
+    resolveProject(input.cwd ?? process.cwd());
   if (!project) {
-    logError("Could not resolve project from cwd", { cwd: input.cwd });
+    logError("Could not resolve project", { cwd: input.cwd, tool_input: input.tool_input });
     return;
   }
 
