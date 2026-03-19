@@ -252,20 +252,32 @@ function escapeXml(s: string): string {
 
 const SCHTASKS_DAY_MAP = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
+/** Escape a value for use in a schtasks /tn or /tr double-quoted parameter */
+function escapeSchtasksArg(s: string): string {
+  // Reject characters that could break out of double-quoted schtasks parameters
+  if (/["\n\r]/.test(s)) {
+    throw new Error(`Invalid characters in schtasks argument: ${s}`);
+  }
+  return s;
+}
+
 export function generateSchtasksCommand(entry: ScheduleEntry): string {
   const sched = entry.schedule;
-  const tr = `${entry.command} ${entry.args.join(" ")}`;
+  const safeName = escapeSchtasksArg(entry.name);
+  const safeCommand = escapeSchtasksArg(entry.command);
+  const safeArgs = entry.args.map(escapeSchtasksArg);
+  const tr = `${safeCommand} ${safeArgs.join(" ")}`;
   const time = `${String(("hour" in sched ? sched.hour : 0)).padStart(2, "0")}:${String(("minute" in sched ? sched.minute : 0)).padStart(2, "0")}`;
 
   if ("frequency" in sched) {
     if (sched.frequency === "monthly") {
-      return `schtasks /create /tn "${entry.name}" /tr "${tr}" /sc monthly /d ${sched.dayOfMonth} /st ${time} /rl LIMITED /f`;
+      return `schtasks /create /tn "${safeName}" /tr "${tr}" /sc monthly /d ${sched.dayOfMonth} /st ${time} /rl LIMITED /f`;
     }
-    return `schtasks /create /tn "${entry.name}" /tr "${tr}" /sc weekly /d SUN /st ${time} /rl LIMITED /f`;
+    return `schtasks /create /tn "${safeName}" /tr "${tr}" /sc weekly /d SUN /st ${time} /rl LIMITED /f`;
   }
 
   const day = SCHTASKS_DAY_MAP[sched.dayOfWeek];
-  return `schtasks /create /tn "${entry.name}" /tr "${tr}" /sc weekly /d ${day} /st ${time} /rl LIMITED /f`;
+  return `schtasks /create /tn "${safeName}" /tr "${tr}" /sc weekly /d ${day} /st ${time} /rl LIMITED /f`;
 }
 
 export function generateSchtasksRemoveCommand(taskName: string): string {

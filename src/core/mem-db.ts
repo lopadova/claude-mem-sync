@@ -69,11 +69,19 @@ export function insertObservation(db: Database, obs: Observation, project: strin
   );
 }
 
+/** Hardcoded whitelist of FTS5 table names — prevents SQL injection via table name interpolation */
+const ALLOWED_FTS_TABLES: ReadonlySet<string> = new Set([
+  "observations_fts",
+  "session_summaries_fts",
+  "user_prompts_fts",
+]);
+
 export function rebuildFts(db: Database): void {
-  const ftsTableNames = ["observations_fts", "session_summaries_fts", "user_prompts_fts"];
-  for (const table of ftsTableNames) {
+  for (const table of ALLOWED_FTS_TABLES) {
     try {
-      db.exec(`INSERT INTO ${table}(${table}) VALUES('rebuild')`);
+      // Note: FTS5 rebuild requires table name interpolation (can't use ? for table names).
+      // Safety: table is validated against ALLOWED_FTS_TABLES whitelist above.
+      db.run(`INSERT INTO ${table}(${table}) VALUES('rebuild')`);
       logger.debug(`Rebuilt FTS5 index: ${table}`);
     } catch (e) {
       logger.warn(`Failed to rebuild FTS5 index ${table}: ${e}`);

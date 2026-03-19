@@ -27,6 +27,7 @@ export function createTestMemDb(): Database {
 
     CREATE TABLE session_summaries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      content_text TEXT,
       created_at_epoch INTEGER
     );
 
