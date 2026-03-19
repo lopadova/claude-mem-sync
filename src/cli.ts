@@ -44,6 +44,8 @@ const COMMANDS: Record<string, CommandLoader> = {
   schedule: null, // has subcommands: install, remove
   "ci-merge": () => import("./commands/ci-merge"),
   dashboard: () => import("./commands/dashboard"),
+  profile: () => import("./commands/profile"),
+  distill: () => import("./commands/distill"),
 };
 
 const SCHEDULE_SUBCOMMANDS: Record<string, () => Promise<CommandModule>> = {
@@ -71,6 +73,8 @@ Commands:
   schedule remove         Remove OS scheduled tasks
   ci-merge                CI-only: merge contribution files
   dashboard               Web dashboard (http://localhost:3737)
+  profile                 Generate developer knowledge profiles
+  distill                 LLM-powered knowledge distillation
 
 Options:
   --project <name>        Target a specific project

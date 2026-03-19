@@ -138,6 +138,17 @@ export default async function run(_args: ParsedArgs): Promise<void> {
         exportSchedule: DEFAULT_EXPORT_SCHEDULE,
         logLevel: "info",
         contributionRetentionDays: 30,
+        profiles: { enabled: false, anonymizeOthers: true },
+        distillation: {
+          enabled: false,
+          model: "claude-sonnet-4-20250514",
+          schedule: "after-merge",
+          excludeTypes: [],
+          minObservations: 20,
+          reviewers: [],
+          maxTokenBudget: 100000,
+          allowExternalApi: false,
+        },
       },
       projects,
     };

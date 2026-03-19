@@ -50,6 +50,9 @@
 <div class="ni" data-tab="analytics"><span class="nic">&#x2616;</span> Analytics</div>
 <div class="ni" data-tab="access"><span class="nic">&#x2604;</span> Access Map</div>
 <div class="ni" data-tab="sync"><span class="nic">&#x21C4;</span> Sync History</div>
+<div class="ni" data-tab="profiles"><span class="nic">&#x1F464;</span> Dev Profiles</div>
+<div class="ni" data-tab="team"><span class="nic">&#x1F465;</span> Team Insights</div>
+<div class="ni" data-tab="distilled"><span class="nic">&#x1F4A1;</span> Distilled</div>
 </nav>
 <div class="sf">claude-mem-sync v1.0.0</div>
 </aside>
@@ -82,6 +85,25 @@
 <div class="cd"><div id="sr-results" class="search-results"></div><div class="pg"><span id="sr-count"></span><div><button id="sr-prev" disabled onclick="srPage--;doSearch()">&#8592; Prev</button> <button id="sr-next" onclick="srPage++;doSearch()">Next &#8594;</button></div></div></div>
 </div>
 
+<div id="t-profiles" class="tc"><div class="pt">Developer Profiles</div>
+<div class="sbar"><select id="pf-dev"><option value="">Select Developer...</option></select><select id="pf-proj"><option value="">All Projects</option></select></div>
+<div class="sg" id="pf-stats"></div>
+<div class="cg"><div class="cc"><div class="cti">Knowledge Spectrum</div><canvas id="cpf-type"></canvas></div><div class="cc"><div class="cti">Top Concepts</div><canvas id="cpf-concept"></canvas></div></div>
+<div class="cg"><div class="cc"><div class="cti">Activity Over Time</div><canvas id="cpf-tempo"></canvas></div><div class="cc"><div class="cti">File Coverage</div><canvas id="cpf-files"></canvas></div></div>
+</div>
+
+<div id="t-team" class="tc"><div class="pt">Team Insights</div>
+<div class="sg" id="tm-stats"></div>
+<div class="cg"><div class="cc"><div class="cti">Team Type Distribution</div><canvas id="ctm-types"></canvas></div><div class="cc"><div class="cti">Concept Coverage</div><canvas id="ctm-concepts"></canvas></div></div>
+<div class="cd"><div class="ct2"><span class="ic">&#x26A0;</span> Knowledge Gaps (bus-factor risk)</div><div class="tw"><table><thead><tr><th>Concept</th><th>Contributors</th><th>Team Size</th><th>Risk</th></tr></thead><tbody id="tm-gaps"></tbody></table></div></div>
+</div>
+
+<div id="t-distilled" class="tc"><div class="pt">Distilled Knowledge</div>
+<div class="sg" id="ds-stats"></div>
+<div class="cd"><div class="ct2"><span class="ic">&#x1F4DC;</span> Distilled Rules</div><div id="ds-rules" style="font-size:13px;line-height:1.7;max-height:600px;overflow-y:auto;padding:8px"></div></div>
+<div class="cd"><div class="ct2"><span class="ic">&#x1F4DA;</span> Knowledge Base</div><div id="ds-kb" style="font-size:13px;line-height:1.7;max-height:600px;overflow-y:auto;padding:8px"></div></div>
+</div>
+
 <div class="modal-overlay" id="obs-modal"><div class="modal"><button class="modal-close" onclick="closeModal()">&#x2715;</button><h2 id="md-title"></h2><div class="meta" id="md-meta"></div><div id="md-body"></div></div></div>
 
 <div class="ht" id="htt"></div>
@@ -99,7 +121,7 @@ if(window.Chart){Chart.defaults.color="#94a3b8";Chart.defaults.borderColor="rgba
 QQ(".ni").forEach(function(e){e.addEventListener("click",function(){
   QQ(".ni").forEach(function(n){n.classList.remove("a")});QQ(".tc").forEach(function(t){t.classList.remove("a")});
   e.classList.add("a");Q("#t-"+e.dataset.tab).classList.add("a");
-  var fn={observations:LO,analytics:LA,access:LAC,sync:LS,search:function(){}};if(fn[e.dataset.tab])fn[e.dataset.tab]();
+  var fn={observations:LO,analytics:LA,access:LAC,sync:LS,search:function(){},profiles:LP,team:LT,distilled:LD};if(fn[e.dataset.tab])fn[e.dataset.tab]();
 })});
 
 function AN(el,v,d){d=d||800;if(typeof v==="string"){el.textContent=v;return}
@@ -193,6 +215,123 @@ LO=function(){origLO();setTimeout(function(){QQ("#otb tr").forEach(function(tr){
 
 // -- Nav: add search handler --
 var origNav=null;
+
+// -- Developer Profiles --
+function LP(){
+  var proj=Q("#pf-proj").value||"";
+  F("/api/profiles/devs"+(proj?"?project="+proj:"")).then(function(d){
+    if(!d)return;var sel=Q("#pf-dev");var cur=sel.value;
+    sel.textContent="";
+    var opt0=document.createElement("option");opt0.value="";opt0.textContent="Select Developer...";sel.appendChild(opt0);
+    (d.devNames||[]).forEach(function(n){var o=document.createElement("option");o.value=n;o.textContent=n;if(n===cur)o.selected=true;sel.appendChild(o)});
+    if(cur)loadProfile(cur,proj);
+  });
+}
+function loadProfile(dev,proj){
+  if(!dev)return;
+  F("/api/profiles/"+encodeURIComponent(dev)+(proj?"?project="+proj:"")).then(function(p){
+    if(!p||p.error){Q("#pf-stats").textContent="No profile data found";return}
+    var el=Q("#pf-stats");el.textContent="";
+    [["Observations",p.knowledgeSpectrum.total,"&#x1F4DD;"],["Concept Coverage",p.conceptMap.devCoverage+"%","&#x1F4A1;"],["Survival Rate",(p.survivalRate.rate*100).toFixed(0)+"% ("+p.survivalRate.survived+"/"+p.survivalRate.exported+")","&#x2705;"],["Avg / Week",p.temporalPattern.averagePerWeek+" (consistency: "+p.temporalPattern.consistency+")","&#x1F4C5;"]].forEach(function(x){
+      var c=document.createElement("div");c.className="sc";
+      var si=document.createElement("div");si.className="si";si.innerHTML=x[2];
+      var sv=document.createElement("div");sv.className="sv";sv.textContent=String(x[1]);
+      var sl=document.createElement("div");sl.className="sl";sl.textContent=x[0];
+      c.appendChild(si);c.appendChild(sv);c.appendChild(sl);el.appendChild(c);
+    });
+    if(window.Chart){
+      var ts=p.knowledgeSpectrum.types.filter(function(t){return t.count>0||t.teamAverage>0});
+      if(C.pfType)C.pfType.destroy();
+      C.pfType=new Chart(Q("#cpf-type"),{type:"doughnut",data:{labels:ts.map(function(t){return t.type}),datasets:[{label:"Your %",data:ts.map(function(t){return t.percentage}),backgroundColor:ts.map(function(t){return TC[t.type]||"#64748b"}),borderWidth:0}]},options:{plugins:{legend:{position:"right",labels:{padding:12,usePointStyle:true,pointStyle:"circle"}}},cutout:"60%"}});
+      var cs=p.conceptMap.concepts.filter(function(c){return c.devCount>0}).slice(0,15);
+      if(C.pfCon)C.pfCon.destroy();
+      C.pfCon=new Chart(Q("#cpf-concept"),{type:"bar",data:{labels:cs.map(function(c){return c.concept.substring(0,25)}),datasets:[{label:"You",data:cs.map(function(c){return c.devCount}),backgroundColor:"#6366f1",borderRadius:4},{label:"Team",data:cs.map(function(c){return c.teamCount}),backgroundColor:"rgba(99,102,241,.3)",borderRadius:4}]},options:{indexAxis:"y",plugins:{legend:{labels:{usePointStyle:true,pointStyle:"circle",padding:16}}},scales:{x:{beginAtZero:true,grid:{color:"rgba(255,255,255,.04)"}},y:{grid:{display:false},ticks:{font:{size:11}}}}}});
+      var wk=p.temporalPattern.monthly||[];
+      if(C.pfTmp)C.pfTmp.destroy();
+      C.pfTmp=new Chart(Q("#cpf-tempo"),{type:"line",data:{labels:wk.map(function(w){return w.month}),datasets:[{label:"Observations",data:wk.map(function(w){return w.count}),borderColor:"#06b6d4",backgroundColor:"rgba(6,182,212,.1)",fill:true,tension:.3}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:"rgba(255,255,255,.04)"}},x:{grid:{display:false}}}}});
+      var fc=p.fileCoverage.directories.slice(0,10);
+      if(C.pfFil)C.pfFil.destroy();
+      C.pfFil=new Chart(Q("#cpf-files"),{type:"bar",data:{labels:fc.map(function(d){return d.directory.split("/").pop()||d.directory}),datasets:[{data:fc.map(function(d){return d.count}),backgroundColor:"#8b5cf6",borderRadius:4}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:"rgba(255,255,255,.04)"}},x:{grid:{display:false}}}}});
+    }
+  });
+}
+Q("#pf-dev").addEventListener("change",function(){loadProfile(Q("#pf-dev").value,Q("#pf-proj").value)});
+Q("#pf-proj").addEventListener("change",function(){LP()});
+
+// -- Team Insights --
+function LT(){
+  var proj=Q("#pf-proj")?Q("#pf-proj").value:"";
+  F("/api/team/overview"+(proj?"?project="+proj:"")).then(function(d){
+    if(!d)return;
+    var el=Q("#tm-stats");el.textContent="";
+    [["Developers",d.totalDevs,"&#x1F465;"],["Avg Obs / Dev",d.avgObservationsPerDev,"&#x1F4CA;"],["Avg Survival Rate",(d.avgSurvivalRate*100).toFixed(0)+"%","&#x2705;"],["Avg Concept Coverage",d.avgConceptDiversity+"%","&#x1F4A1;"]].forEach(function(x){
+      var c=document.createElement("div");c.className="sc";
+      var si=document.createElement("div");si.className="si";si.innerHTML=x[2];
+      var sv=document.createElement("div");sv.className="sv";sv.textContent=String(x[1]);
+      var sl=document.createElement("div");sl.className="sl";sl.textContent=x[0];
+      c.appendChild(si);c.appendChild(sv);c.appendChild(sl);el.appendChild(c);
+    });
+    if(window.Chart&&d.typeDistribution){
+      var ts=d.typeDistribution.filter(function(t){return t.count>0});
+      if(C.tmType)C.tmType.destroy();
+      C.tmType=new Chart(Q("#ctm-types"),{type:"doughnut",data:{labels:ts.map(function(t){return t.type}),datasets:[{data:ts.map(function(t){return t.count}),backgroundColor:ts.map(function(t){return TC[t.type]||"#64748b"}),borderWidth:0}]},options:{plugins:{legend:{position:"right",labels:{padding:12,usePointStyle:true,pointStyle:"circle"}}},cutout:"60%"}});
+    }
+  });
+  F("/api/team/concepts"+(proj?"?project="+proj:"")).then(function(d){
+    if(!d)return;
+    if(window.Chart&&d.concepts){
+      var cs=d.concepts.slice(0,20);
+      if(C.tmCon)C.tmCon.destroy();
+      C.tmCon=new Chart(Q("#ctm-concepts"),{type:"bar",data:{labels:cs.map(function(c){return c.concept.substring(0,20)}),datasets:[{label:"Team Count",data:cs.map(function(c){return c.teamCount}),backgroundColor:cs.map(function(c){return c.isGap?"rgba(239,68,68,.6)":"rgba(99,102,241,.6)"}),borderRadius:4}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:"rgba(255,255,255,.04)"}},x:{grid:{display:false},ticks:{font:{size:10}}}}}});
+    }
+    var tb=Q("#tm-gaps");tb.textContent="";
+    var gaps=d.knowledgeGaps||[];
+    if(gaps.length===0){var tr=document.createElement("tr");var td=document.createElement("td");td.colSpan=4;td.style.cssText="color:var(--txm);text-align:center";td.textContent="No knowledge gaps detected";tr.appendChild(td);tb.appendChild(tr)}
+    else gaps.slice(0,20).forEach(function(g){
+      var tr=document.createElement("tr");
+      var td1=document.createElement("td");td1.textContent=g.concept;
+      var td2=document.createElement("td");td2.textContent=String(g.contributorCount);
+      var td3=document.createElement("td");td3.textContent=String(g.totalTeamCount);
+      var td4=document.createElement("td");
+      var sp=document.createElement("span");sp.className=g.contributorCount<=1?"b bb":"b bw";sp.textContent=g.contributorCount<=1?"High":"Medium";
+      td4.appendChild(sp);
+      tr.appendChild(td1);tr.appendChild(td2);tr.appendChild(td3);tr.appendChild(td4);tb.appendChild(tr);
+    });
+  });
+}
+
+// -- Distilled Knowledge --
+function LD(){
+  F("/api/distilled/report").then(function(d){
+    var el=Q("#ds-stats");el.textContent="";
+    if(!d||!d.exists){
+      var c=document.createElement("div");c.className="sc";c.style.gridColumn="1/-1";
+      var sv=document.createElement("div");sv.className="sv";sv.textContent="No Distillation Yet";
+      var sl=document.createElement("div");sl.className="sl";sl.textContent="Run: mem-sync distill --project <name>";
+      c.appendChild(sv);c.appendChild(sl);el.appendChild(c);
+      Q("#ds-rules").textContent="No distilled rules available. Run distillation first.";
+      Q("#ds-kb").textContent="";return;
+    }
+    var r=d.report;
+    [["Rules Generated",r.outputStats.rulesGenerated,"&#x1F4DC;"],["Avg Confidence",(r.outputStats.avgConfidence*100).toFixed(0)+"%","&#x1F3AF;"],["Knowledge Sections",r.outputStats.knowledgeSections,"&#x1F4DA;"],["API Cost","$"+r.tokenUsage.estimatedCost.toFixed(4)+" ("+r.tokenUsage.totalTokens.toLocaleString()+" tokens)","&#x1F4B0;"]].forEach(function(x){
+      var c=document.createElement("div");c.className="sc";
+      var si=document.createElement("div");si.className="si";si.innerHTML=x[2];
+      var sv=document.createElement("div");sv.className="sv";sv.textContent=String(x[1]);
+      var sl=document.createElement("div");sl.className="sl";sl.textContent=x[0];
+      c.appendChild(si);c.appendChild(sv);c.appendChild(sl);el.appendChild(c);
+    });
+  });
+  F("/api/distilled/rules").then(function(d){
+    var el=Q("#ds-rules");
+    if(!d||!d.exists){el.textContent="Not available";return}
+    el.textContent=d.content;el.style.whiteSpace="pre-wrap";
+  });
+  F("/api/distilled/kb").then(function(d){
+    var el=Q("#ds-kb");
+    if(!d||!d.exists){el.textContent="Not available";return}
+    el.textContent=d.content;el.style.whiteSpace="pre-wrap";
+  });
+}
 
 LV();
 </script>

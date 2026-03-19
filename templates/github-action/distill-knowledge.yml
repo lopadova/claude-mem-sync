@@ -1,0 +1,56 @@
+name: Distill Team Knowledge
+on:
+  workflow_run:
+    workflows: ["Merge Developer Memories"]
+    types:
+      - completed
+  workflow_dispatch:
+
+concurrency:
+  group: distill-knowledge
+  cancel-in-progress: false
+
+jobs:
+  distill:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install claude-mem-sync
+        run: bun install -g claude-mem-sync
+
+      - name: Run knowledge distillation
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          mem-sync distill \
+            --all \
+            --output-dir merged/ \
+            --contributions-dir contributions/
+
+      - name: Create PR with distilled knowledge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="distill/$(date +%Y-%m-%d)"
+          git config user.name "mem-sync-bot"
+          git config user.email "mem-sync-bot@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add distilled/
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: distill team knowledge [mem-sync]"
+          git push -u origin "$BRANCH"
+          gh pr create \
+            --title "Knowledge Distillation $(date +%Y-%m-%d)" \
+            --body "Auto-generated rules and knowledge base from team observations. Please review before merging." \
+            --reviewer "${{ vars.DISTILL_REVIEWERS || '' }}"

@@ -47,6 +47,22 @@ export const ProjectConfigSchema = z.object({
   eviction: EvictionSchema.optional(),
 });
 
+export const ProfilesConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  anonymizeOthers: z.boolean().default(true),
+});
+
+export const DistillationConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  model: z.string().default("claude-sonnet-4-20250514"),
+  schedule: z.enum(["after-merge", "weekly", "manual"]).default("after-merge"),
+  excludeTypes: z.array(z.string()).default([]),
+  minObservations: z.number().int().positive().default(20),
+  reviewers: z.array(z.string()).default([]),
+  maxTokenBudget: z.number().int().positive().default(100000),
+  allowExternalApi: z.boolean().default(false),
+});
+
 export const GlobalConfigSchema = z.object({
   devName: z.string().min(1),
   evictionStrategy: z.enum(["hook", "passive"]).default("passive"),
@@ -59,6 +75,8 @@ export const GlobalConfigSchema = z.object({
   logLevel: z.enum(["debug", "info", "warn", "error"]).default(DEFAULT_LOG_LEVEL),
   claudeMemDbPath: z.string().default(DEFAULT_CLAUDE_MEM_DB),
   contributionRetentionDays: z.number().int().positive().default(DEFAULT_CONTRIBUTION_RETENTION_DAYS),
+  profiles: ProfilesConfigSchema.default({}),
+  distillation: DistillationConfigSchema.default({}),
 });
 
 export const ConfigSchema = z.object({
@@ -72,5 +90,7 @@ export type EvictionConfig = z.infer<typeof EvictionSchema>;
 export type ExportConfig = z.infer<typeof ExportConfigSchema>;
 export type RemoteConfig = z.infer<typeof RemoteConfigSchema>;
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
+export type ProfilesConfig = z.infer<typeof ProfilesConfigSchema>;
+export type DistillationConfig = z.infer<typeof DistillationConfigSchema>;
 export type GlobalConfig = z.infer<typeof GlobalConfigSchema>;
 export type Config = z.infer<typeof ConfigSchema>;

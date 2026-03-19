@@ -23,6 +23,15 @@ Developer Machine                    Shared Git Repo
 │ (tracks real usage)  │             │ (dedup + integrity)  │
 └─────────────────────┘              └──────────────────────┘
                                      GitHub Action merges contributions → merged/
+                                                                          │
+                                     ┌──────────────────────┐             │
+                                     │ Profile Pipeline     │◄────────────┤
+                                     │ (per-dev metrics)    │──► profiles/│
+                                     └──────────────────────┘             │
+                                     ┌──────────────────────┐             │
+                                     │ Distillation Pipeline│◄────────────┘
+                                     │ (LLM → rules + KB)  │──► distilled/
+                                     └──────────────────────┘
 ```
 
 **Key invariants**:
@@ -38,9 +47,11 @@ Developer Machine                    Shared Git Repo
 src/
   cli.ts                  — Entry point: command router (parseFlags + dispatch)
   types/
-    config.ts             — Zod schemas + TS types for config
+    config.ts             — Zod schemas + TS types for config (incl. profiles + distillation)
     observation.ts        — Observation, ScoredObservation, ExportFile interfaces
     merge-state.ts        — .merge-state.json types
+    profile.ts            — Developer profile, team overview, concept map types
+    distillation.ts       — Distilled rules, knowledge sections, report, feedback types
   core/
     constants.ts          — Paths, defaults, type weights, dedup key fields
     logger.ts             — Debug/error → file, info/warn → console
@@ -52,6 +63,14 @@ src/
     merger.ts             — Dedup + cap enforcement with eviction
     git.ts                — Git operations via Bun.spawn (array args, NO shell)
     scheduler.ts          — Cross-platform cron/launchd/schtasks generation
+    profiler.ts           — Profile computation from contribution/merged files
+    distiller.ts          — LLM API integration + output rendering
+    dashboard-server.ts   — HTTP server with 16 API routes + 9-tab SPA
+    dashboard-profiles.ts — Profile/team API handlers
+    dashboard-distilled.ts — Distillation rules/KB/feedback API handlers
+    analytics.ts          — Analytics computations for dashboard
+    prompts/
+      distillation-system.ts — System + user prompt templates for distillation
   commands/
     init.ts               — Interactive setup wizard
     export.ts             — Export filtered memories to git
@@ -62,6 +81,9 @@ src/
     schedule-install.ts   — Install OS scheduled tasks
     schedule-remove.ts    — Remove OS scheduled tasks
     ci-merge.ts           — CI-only merge command for GitHub Action
+    profile.ts            — Generate developer knowledge profiles
+    distill.ts            — LLM-powered knowledge distillation
+    dashboard.ts          — Web dashboard launcher
 
 hooks/
   hooks.json              — Claude Code PostToolUse hook registration
@@ -69,11 +91,14 @@ hooks/
 
 templates/
   github-action/merge-memories.yml
+  github-action/distill-knowledge.yml
   config.example.json
   .gitignore.example
 
 tests/
   filter.test.ts, scoring.test.ts, merger.test.ts, config.test.ts
+  profiler.test.ts        — Profile generation and team aggregates
+  distiller.test.ts       — Distillation prompt building, response parsing, config schemas
   helpers/test-db.ts      — In-memory DB factory with claude-mem schema + FTS5
   integration/            — export, import, ci-merge pipeline tests
 ```
@@ -91,12 +116,15 @@ tests/
 | `mem-sync schedule install` | Install OS-level scheduled tasks |
 | `mem-sync schedule remove` | Remove scheduled tasks |
 | `mem-sync ci-merge` | CI-only: merge contributions in GitHub Action |
+| `mem-sync profile [--dev X] [--project X] [--format md\|json]` | Generate developer knowledge profiles |
+| `mem-sync distill --project X [--api-key KEY] [--dry-run]` | LLM-powered knowledge distillation |
+| `mem-sync dashboard [--port N]` | Web dashboard (http://localhost:3737) |
 
 ## Development
 
 ```bash
 bun install              # Install deps
-bun test                 # Run all tests (72 tests, ~100ms)
+bun test                 # Run all tests (95 tests, ~130ms)
 bun test --watch         # Watch mode
 bunx tsc --noEmit        # Type check
 bun src/cli.ts --help    # CLI smoke test
@@ -140,13 +168,32 @@ Key paths:
 - `~/.claude-mem-sync/logs/` — log files
 - `~/.claude-mem/claude-mem.db` — claude-mem's DB (default path, configurable)
 
+New config sections (under `global`):
+```json
+"profiles": { "enabled": false, "anonymizeOthers": true },
+"distillation": {
+  "enabled": false, "model": "claude-sonnet-4-20250514",
+  "schedule": "after-merge", "excludeTypes": [],
+  "minObservations": 20, "reviewers": [],
+  "maxTokenBudget": 100000, "allowExternalApi": false
+}
+```
+
+Output directories:
+- `profiles/{project}/{devName}/profile.json` — per-dev profile
+- `profiles/{project}/team-overview.json` — team aggregates
+- `distilled/{project}/rules.md` — CLAUDE.md-compatible rules
+- `distilled/{project}/knowledge-base.md` — grouped knowledge docs
+- `distilled/{project}/distillation-report.json` — run metadata
+- `distilled/{project}/feedback.json` — rule accept/reject status
+
 ## Rules for AI agents working on this codebase
 
 1. **Never modify claude-mem's DB schema** — we are a consumer, not an owner
 2. **All SQL uses parameterized queries** (`?` placeholders) — no string interpolation
 3. **All shell commands use array args** via `spawnCommand()` from compat.ts — never pass strings to a shell
 4. **All filters default to empty = no export** — never leak data by default
-5. **Run `bun test` after any change** — all 72 tests must pass
+5. **Run `bun test` after any change** — all 95 tests must pass
 6. **Run `bunx tsc --noEmit` after any change** — zero type errors
 7. **Never import `bun:sqlite` directly** — use `createDatabase()` from `src/core/compat.ts` which auto-detects Bun vs Node.js
 8. **Never use `Bun.*` APIs directly** — use the wrappers in `src/core/compat.ts` (spawnCommand, sha256, copyFile, getFileSize, readAllStdin)

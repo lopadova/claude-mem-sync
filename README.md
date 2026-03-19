@@ -4,6 +4,7 @@
 
 ![github-banner-team-memory.png](resources/github-banner-team-memory.png)
 
+![overview.png](resources/overview.png)
 ---
 
 ## Table of Contents
@@ -15,12 +16,14 @@
 - [Configuration](#configuration)
 - [CLI Reference](#cli-reference)
 - [Web Dashboard](#web-dashboard)
+- [Developer Knowledge Profiles](#developer-knowledge-profiles)
+- [Knowledge Distillation](#knowledge-distillation)
 - [Eviction & Scoring](#eviction--scoring)
 - [Destination Patterns](#destination-patterns)
 - [CI/CD Integration](#cicd-integration)
 - [Scheduling](#scheduling)
 - [Maintenance](#maintenance)
-- [Security](#security)
+- [Security & Privacy](#security--privacy)
 - [Architecture](#architecture)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
@@ -55,6 +58,15 @@ Developer A                    GitHub (shared repo)              Developer B
                                     ▲
                                GitHub Action
                                (merge + dedup + cap)
+                                    │
+                          ┌─────────┴──────────┐
+                          ▼                    ▼
+                    ┌────────────┐      ┌────────────┐
+                    │  profiles/ │      │ distilled/ │
+                    │  per-dev   │      │ rules.md   │
+                    │  metrics   │      │ kb.md      │
+                    └────────────┘      └────────────┘
+                    (deterministic)     (LLM-powered)
 ```
 
 **Features:**
@@ -67,8 +79,11 @@ Developer A                    GitHub (shared repo)              Developer B
 - **PR review mode** — optional human review before memories enter the shared repo
 - **Multi-provider support** — GitHub, GitLab, and Bitbucket (including self-hosted)
 - **CI merge bot** — templates for GitHub Actions, GitLab CI, and Bitbucket Pipelines
-- **Web dashboard** — enterprise-grade dark-theme UI with charts, heatmaps, and analytics
+- **Web dashboard** — 9-tab dark-theme UI with charts, heatmaps, profiles, and analytics
 - **Rich analytics** — type distribution, access patterns, developer contributions, observation scoring
+- **Developer knowledge profiles** — per-dev metrics: knowledge spectrum, concept map, file coverage, temporal patterns, survival rate
+- **Knowledge distillation** — LLM-powered extraction of CLAUDE.md rules and knowledge docs from team observations
+- **Team insights** — knowledge gaps detection, concept coverage heatmaps, bus-factor risk analysis
 - **Dual runtime** — works with both Bun and Node.js (v18+)
 - **Configurable cleanup** — automatic retention policy for old contribution files
 
@@ -159,6 +174,16 @@ Created by `mem-sync init` or manually. See `templates/config.example.json` for 
 | `logLevel` | string | `"info"` | Log verbosity |
 | `claudeMemDbPath` | string | `~/.claude-mem/claude-mem.db` | Path to claude-mem's database |
 | `contributionRetentionDays` | number | `30` | Days to keep processed contribution files before auto-cleanup |
+| `profiles.enabled` | boolean | `false` | Enable developer knowledge profile generation |
+| `profiles.anonymizeOthers` | boolean | `true` | Show "your data vs team average" — never name other devs |
+| `distillation.enabled` | boolean | `false` | Enable LLM-powered knowledge distillation |
+| `distillation.model` | string | `"claude-sonnet-4-20250514"` | Anthropic model for distillation |
+| `distillation.schedule` | `"after-merge"` \| `"weekly"` \| `"manual"` | `"after-merge"` | When to run distillation |
+| `distillation.excludeTypes` | string[] | `[]` | Observation types to exclude from distillation |
+| `distillation.minObservations` | number | `20` | Minimum observations required to run distillation |
+| `distillation.reviewers` | string[] | `[]` | GitHub usernames to request review on distillation PRs |
+| `distillation.maxTokenBudget` | number | `100000` | Max estimated tokens per API call |
+| `distillation.allowExternalApi` | boolean | `false` | Must be `true` to send data to Anthropic API |
 
 ### Per-Project Settings
 
@@ -227,22 +252,51 @@ Install OS-specific scheduled tasks (cron on Linux, launchd on macOS, Task Sched
 
 Remove all scheduled tasks created by `schedule install`.
 
+### `mem-sync profile [--dev <name>] [--project <name>] [--format md|json]`
+
+Generate developer knowledge profiles from contribution and merged data.
+
+```bash
+mem-sync profile --project my-project                    # All devs
+mem-sync profile --project my-project --dev alice        # Single dev
+mem-sync profile --project my-project --format md        # Markdown output
+mem-sync profile --project my-project --dry-run          # Preview only
+```
+
+Output is written to `profiles/{project}/{devName}/profile.json` (and `.md` with `--format md`). See [Developer Knowledge Profiles](#developer-knowledge-profiles) for details.
+
+### `mem-sync distill --project <name> [--api-key <KEY>] [--dry-run]`
+
+Run LLM-powered knowledge distillation on merged observations.
+
+```bash
+mem-sync distill --project my-project --dry-run          # Preview without API call
+mem-sync distill --project my-project                    # Run distillation
+mem-sync distill --project my-project --api-key sk-...   # Explicit API key
+```
+
+Requires `distillation.enabled: true` and `distillation.allowExternalApi: true` in config. API key via `--api-key` or `ANTHROPIC_API_KEY` env var. See [Knowledge Distillation](#knowledge-distillation) for details.
+
 ### `mem-sync dashboard [--port <N>]`
 
-Launch a web dashboard at `http://localhost:3737` (default port). Features:
+Launch a web dashboard at `http://localhost:3737` (default port) with 9 tabs:
 
 - **Overview** — stat cards, project health, DB sizes, hook status
 - **Observations** — searchable, filterable table with pagination and scoring
-- **Analytics** — type distribution (doughnut), activity timeline (line), top scored (bar), developer contributions (bar)
+- **Search** — FTS5 full-text search across all observations
+- **Analytics** — type distribution, activity timeline, top scored, developer contributions
 - **Access Map** — GitHub-style heatmap of daily access patterns, most accessed observations
 - **Sync History** — monthly export/import chart, recent exports/imports tables
+- **Dev Profiles** — per-developer knowledge spectrum, concept map, file coverage, temporal pattern charts
+- **Team Insights** — team averages, concept coverage, knowledge gap detection (bus-factor risk)
+- **Distilled** — distilled rules, knowledge base, report stats, API cost tracking
 
 ```bash
 mem-sync dashboard              # Opens at http://localhost:3737
 mem-sync dashboard --port 8080  # Custom port
 ```
 
-The dashboard uses a dark theme with glassmorphism design, Chart.js visualizations, and animated counters. It reads directly from your local claude-mem DB and access.db — no network required.
+The dashboard uses a dark theme with glassmorphism design, Chart.js visualizations, and animated counters. It reads directly from your local claude-mem DB, access.db, and contribution/profile/distillation files.
 
 ### `mem-sync ci-merge`
 
@@ -261,22 +315,58 @@ The `--retention-days` flag controls how long processed contribution files are k
 
 ## Web Dashboard
 
-Launch a local web dashboard to visualize your team's shared memories, access patterns, and sync activity.
+Launch a local web dashboard to visualize your team's shared memories, access patterns, profiles, and distilled knowledge.
 
 ```bash
 mem-sync dashboard              # http://localhost:3737
 mem-sync dashboard --port 8080  # custom port
 ```
 
+### Screenshots
+
+![overview.png](resources/overview.png)
+![analytics.png](resources/analytics.png)
+![observations.png](resources/observations.png)
+![memory-details.png](resources/memory-details.png)
+![search-memories.png](resources/search-memories.png)
+
 ### Tabs
 
 | Tab | What it shows |
 |-----|---------------|
 | **Overview** | Stat cards (observations, sessions, access events, DB size), project cards with merge cap progress bars, health indicators |
-| **Observations** | Full-text search, type/project filters, paginated table with eviction scores |
+| **Observations** | Full-text search, type/project filters, paginated table with eviction scores, click-to-detail modal |
+| **Search** | FTS5 full-text search with `AND`, `OR`, `NOT`, `"exact phrase"` syntax, type/project filters, snippet highlighting |
 | **Analytics** | Type distribution (doughnut chart), activity timeline (line chart), top observations by score (horizontal bar), developer contributions (grouped bar) |
 | **Access Map** | GitHub-style heatmap of daily access patterns (6 months), top 20 most accessed observations with bar indicators |
 | **Sync History** | Monthly export/import stacked bar chart, recent exports table, recent imports table |
+| **Dev Profiles** | Developer selector dropdown, knowledge spectrum doughnut chart (your types vs team average), top concepts bar chart (you vs team), monthly activity line chart, file coverage bar chart, KPI cards (total obs, concept coverage %, survival rate %, avg/week) |
+| **Team Insights** | Team KPI cards (devs, avg obs/dev, avg survival rate, avg concept coverage), team type distribution doughnut, concept coverage bar chart (red = knowledge gaps), knowledge gaps table with bus-factor risk indicators |
+| **Distilled** | Distilled rules rendered as markdown, knowledge base content, report KPI cards (rules generated, avg confidence, knowledge sections, API cost + token usage) |
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/overview` | GET | Overview stats, project list, DB sizes |
+| `/api/observations` | GET | Paginated observations with search/filter |
+| `/api/observations/:id` | GET | Single observation detail |
+| `/api/search` | GET | FTS5 search with pagination |
+| `/api/analytics/types` | GET | Type distribution counts |
+| `/api/analytics/timeline` | GET | Monthly sync timeline |
+| `/api/analytics/scores` | GET | Observation eviction scores |
+| `/api/analytics/devs` | GET | Developer contribution stats |
+| `/api/access/top` | GET | Most accessed observations |
+| `/api/access/heatmap` | GET | Daily access heatmap data |
+| `/api/sync/history` | GET | Export/import history |
+| `/api/profiles/devs` | GET | List of developer names |
+| `/api/profiles/:devName` | GET | Developer profile data |
+| `/api/team/overview` | GET | Team aggregate metrics |
+| `/api/team/concepts` | GET | Team concept coverage + knowledge gaps |
+| `/api/distilled/rules` | GET | Distilled rules markdown |
+| `/api/distilled/kb` | GET | Knowledge base markdown |
+| `/api/distilled/report` | GET | Distillation report + feedback |
+| `/api/distilled/feedback` | POST | Submit rule accept/reject feedback |
 
 ### Design
 
@@ -284,7 +374,221 @@ mem-sync dashboard --port 8080  # custom port
 - Chart.js 4 for interactive visualizations
 - Inter font, animated counters, hover effects
 - Responsive layout (sidebar collapses on mobile)
-- Zero dependencies — reads directly from local SQLite databases
+- Zero frameworks — vanilla JS SPA, single HTML file
+- Reads directly from local SQLite databases + contribution/profile/distillation files
+
+## Developer Knowledge Profiles
+
+Generate per-developer analytics from contribution and merged data — no LLM required, zero API cost, fully deterministic.
+
+### What It Computes
+
+Each developer profile contains 5 metrics:
+
+| Metric | What it measures |
+|--------|-----------------|
+| **Knowledge Spectrum** | Type distribution (decision/bugfix/feature/discovery/refactor/change) with counts, percentages, and comparison against team average |
+| **Concept Map** | Frequency table of concepts extracted from observations, highlighting concepts the dev hasn't covered vs the team (knowledge gaps) |
+| **File Coverage** | Directories and files touched, with a specialization index (1 = concentrated in few dirs, 0 = spread across many) |
+| **Temporal Pattern** | Observations per week/month with average and consistency score (1 = steady, 0 = sporadic) |
+| **Contribution Survival Rate** | Percentage of the dev's exported observations that survived into the merged set — a natural quality proxy |
+
+### Usage
+
+```bash
+# Generate profiles for all developers in a project
+mem-sync profile --project my-project
+
+# Single developer
+mem-sync profile --project my-project --dev alice
+
+# Markdown output (alongside JSON)
+mem-sync profile --project my-project --format md
+
+# Preview without writing files
+mem-sync profile --project my-project --dry-run
+```
+
+### Output
+
+```
+profiles/
+  my-project/
+    alice/
+      profile.json       # Full profile data
+      profile.md         # Human-readable markdown
+    bob/
+      profile.json
+    team-overview.json   # Team aggregate metrics
+```
+
+### Team Overview
+
+When profiles are generated for multiple developers, a `team-overview.json` is also produced with:
+
+- Total developers count
+- Average observations per developer
+- Average survival rate across the team
+- Average concept diversity (coverage percentage)
+- Aggregated type distribution
+
+### Team Concepts & Knowledge Gaps
+
+The team concepts analysis identifies **knowledge bus-factor risks** — concepts known by only 1 developer. Visible in the dashboard's Team Insights tab and available via the `/api/team/concepts` endpoint.
+
+### Configuration
+
+```json
+{
+  "global": {
+    "profiles": {
+      "enabled": true,
+      "anonymizeOthers": true
+    }
+  }
+}
+```
+
+- **`enabled`**: `false` by default — opt-in to profile generation
+- **`anonymizeOthers`**: `true` by default — profiles show "your data vs team average", never naming other developers
+
+### Privacy Model
+
+- Profiles are opt-in (`enabled: false` default)
+- No developer rankings or cross-dev comparisons (toxic for team dynamics)
+- When `anonymizeOthers` is enabled, all comparisons use anonymized team averages
+- A developer controls their own visibility by enabling/disabling export
+- No judgmental language — neutral data descriptions only
+
+### CI Integration
+
+The `merge-memories.yml` GitHub Action template automatically generates profiles after each merge:
+
+```yaml
+- name: Generate developer profiles
+  run: mem-sync profile --all --contributions-dir contributions/ --output-dir merged/
+  continue-on-error: true
+```
+
+---
+
+## Knowledge Distillation
+
+Analyze merged team observations with an LLM to extract actionable rules and knowledge documentation. Produces CLAUDE.md-compatible rules and grouped knowledge patterns.
+
+### What It Produces
+
+Three artifacts in `distilled/{project}/`:
+
+| Artifact | Description |
+|----------|-------------|
+| **`rules.md`** | CLAUDE.md-compatible rules with rationale, confidence scores, source evidence counts, and dev diversity metrics. Grouped by category (architecture, testing, security, performance, conventions, workflow, data, dependencies). |
+| **`knowledge-base.md`** | Knowledge documentation grouped by concept clusters. Each section includes patterns, anti-patterns, and descriptions synthesized from observations. |
+| **`distillation-report.json`** | Machine-readable metadata: input stats, rules/sections generated, confidence distribution, token usage, estimated cost, model used, date range. |
+| **`feedback.json`** | Rule feedback tracking: proposed/accepted/rejected/modified status per rule. Used by the dashboard for interactive rule review. |
+
+### Usage
+
+```bash
+# Preview what would be sent to the API (no API call)
+mem-sync distill --project my-project --dry-run
+
+# Run distillation
+mem-sync distill --project my-project
+
+# Explicit API key (otherwise uses ANTHROPIC_API_KEY env var)
+mem-sync distill --project my-project --api-key sk-ant-...
+```
+
+### How It Works
+
+1. Loads merged observations from `merged/{project}/latest.json`
+2. Filters out excluded types (configurable via `distillation.excludeTypes`)
+3. Builds a structured prompt with system instructions and observation data
+4. Calls the Anthropic Messages API (Claude Sonnet 4 by default)
+5. Parses the JSON response using Zod schema validation
+6. Writes `rules.md`, `knowledge-base.md`, `distillation-report.json`, and `feedback.json`
+
+### Cost Estimation
+
+| Observations | Input Tokens (est.) | Output Tokens (est.) | Cost per run | Monthly (weekly) |
+|-------------|--------------------|--------------------|-------------|-----------------|
+| 100 | ~10K | ~5K | ~$0.11 | ~$0.44 |
+| 300 | ~30K | ~8K | ~$0.21 | ~$0.84 |
+| 500 | ~50K | ~10K | ~$0.33 | ~$1.32 |
+
+Costs based on Claude Sonnet 4 pricing ($3/MTok input, $15/MTok output).
+
+### Configuration
+
+```json
+{
+  "global": {
+    "distillation": {
+      "enabled": true,
+      "model": "claude-sonnet-4-20250514",
+      "schedule": "after-merge",
+      "excludeTypes": [],
+      "minObservations": 20,
+      "reviewers": ["team-lead"],
+      "maxTokenBudget": 100000,
+      "allowExternalApi": true
+    }
+  }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `enabled` | Must be `true` to run distillation |
+| `model` | Anthropic model ID (default: Claude Sonnet 4) |
+| `schedule` | `"after-merge"` (CI), `"weekly"`, or `"manual"` |
+| `excludeTypes` | Observation types to exclude (e.g., `["change"]`) |
+| `minObservations` | Minimum count before distillation runs (prevents low-signal output) |
+| `reviewers` | GitHub usernames for PR review (CI workflow) |
+| `maxTokenBudget` | Safety cap — aborts if estimated tokens exceed this |
+| `allowExternalApi` | **Must be explicitly `true`** — ensures conscious decision to send data to Anthropic |
+
+### Rules Quality
+
+Each distilled rule includes:
+
+- **Confidence score** (0.5–1.0) — based on evidence count and developer diversity
+- **Source count** — number of observations supporting the rule
+- **Source types** — which observation types contributed evidence
+- **Dev diversity** — how many different developers contributed supporting observations
+- **Category** — architecture, testing, security, performance, conventions, workflow, data, or dependencies
+
+Rules below 0.5 confidence are not included. Rules are suggestions requiring human review — they are **never auto-merged** into CLAUDE.md.
+
+### Feedback Loop
+
+The dashboard's Distilled tab provides accept/reject/modify buttons for each rule. Feedback is stored in `distilled/{project}/feedback.json` and can be incorporated into future distillation runs (the next run can exclude rejected rules).
+
+### CI Integration
+
+A dedicated GitHub Action template is provided for automated distillation:
+
+```bash
+cp templates/github-action/distill-knowledge.yml .github/workflows/
+```
+
+This workflow:
+1. Triggers after the `Merge Developer Memories` workflow completes
+2. Runs `mem-sync distill --all`
+3. Creates a PR with the distilled output (not auto-merged — always requires human review)
+4. Assigns configured reviewers
+
+Requires the `ANTHROPIC_API_KEY` secret set in the repository.
+
+### Privacy Safeguards
+
+- `allowExternalApi: false` by default — must be explicitly enabled
+- Observations are pre-filtered before API calls (optional `excludeTypes`)
+- System prompt instructs the LLM: no specific code snippets, file paths, or developer names in output
+- Provenance cites counts and types only, not attribution
+- Output delivered as PR, never auto-merged
+- `excludeTypes` can be used to keep sensitive observation types (e.g., security bugfixes) out of the API payload
 
 ## Eviction & Scoring
 
@@ -380,6 +684,16 @@ cp templates/bitbucket-pipelines/merge-memories.yml bitbucket-pipelines.yml
 
 All templates run `mem-sync ci-merge` which handles merging, dedup, eviction, and contribution cleanup.
 
+### Knowledge Distillation Workflow
+
+An additional GitHub Action template is provided for automated distillation:
+
+```bash
+cp templates/github-action/distill-knowledge.yml .github/workflows/
+```
+
+This workflow triggers after the merge workflow completes, runs `mem-sync distill`, and creates a PR with distilled rules and knowledge docs for human review. Requires the `ANTHROPIC_API_KEY` repository secret.
+
 ### `.merge-state.json`
 
 Tracks which contribution files have been processed, preventing re-merging. Committed to the repo alongside merged output.
@@ -432,7 +746,7 @@ schtasks /create /tn "claude-mem-sync-maintain" /tr "mem-sync maintain" /sc mont
 cp ~/.claude-mem/claude-mem.db.backup ~/.claude-mem/claude-mem.db
 ```
 
-## Security
+## Security & Privacy
 
 ### What Gets Exported
 
@@ -445,6 +759,21 @@ Only observations matching your configured filters (types, keywords, tags) are e
 - **Private repos only**: the shared memories repo should always be private
 - **Review your filters**: observations can contain code with secrets, tokens, or internal URLs
 
+### Developer Profiles Privacy
+
+- **Opt-in**: `profiles.enabled` is `false` by default
+- **No rankings**: profiles show individual metrics vs anonymized team average — never cross-developer comparisons
+- **`anonymizeOthers: true`** (default): comparisons use "team average", never naming other developers
+- **Self-controlled**: a developer controls their visibility by enabling/disabling export
+
+### Knowledge Distillation Privacy
+
+- **Double opt-in**: both `distillation.enabled` and `distillation.allowExternalApi` must be explicitly `true`
+- **Type exclusion**: `excludeTypes` keeps sensitive observation types out of API payloads
+- **No code/names in output**: system prompt instructs the LLM to never include code snippets, file paths, or developer names
+- **PR-based delivery**: distilled output is delivered as a pull request — never auto-merged
+- **Provenance by counts**: rules cite "3 bugfix observations" not "from Alice's session"
+
 ## Architecture
 
 - **Dual runtime** — works on Bun (v1.0+) and Node.js (v18+) via `src/core/compat.ts` abstraction layer
@@ -455,6 +784,9 @@ Only observations matching your configured filters (types, keywords, tags) are e
 - **`PRAGMA busy_timeout = 5000`** on all connections for WAL contention handling
 - **Multi-provider git** — GitHub, GitLab, Bitbucket with optional self-hosted host override
 - **Array-based process spawning** — all shell commands use `child_process.spawn` with array args (no shell injection)
+- **Profiler** — reads contribution/merged JSON files, computes metrics deterministically (no LLM, no API)
+- **Distiller** — direct `fetch` to Anthropic Messages API (no SDK dependency), Zod-validated structured output
+- **Dashboard** — pure Node.js HTTP server, 19 API endpoints, vanilla JS SPA with Chart.js 4
 
 ## Troubleshooting
 

@@ -16,6 +16,18 @@ import {
   getDevContributions,
   getObservationScores,
 } from "./analytics";
+import {
+  handleProfileDev,
+  handleProfileDevs,
+  handleTeamOverview,
+  handleTeamConcepts,
+} from "./dashboard-profiles";
+import {
+  handleDistilledRules,
+  handleDistilledKB,
+  handleDistilledReport,
+  handleDistilledFeedback,
+} from "./dashboard-distilled";
 
 // -- Helpers --
 
@@ -417,6 +429,12 @@ const ROUTES: Record<string, RouteHandler> = {
   "/api/analytics/scores": handleScores,
   "/api/analytics/devs": handleDevContributions,
   "/api/search": handleSearch,
+  "/api/profiles/devs": handleProfileDevs,
+  "/api/team/overview": handleTeamOverview,
+  "/api/team/concepts": handleTeamConcepts,
+  "/api/distilled/rules": handleDistilledRules,
+  "/api/distilled/kb": handleDistilledKB,
+  "/api/distilled/report": handleDistilledReport,
 };
 
 // -- Server --
@@ -443,10 +461,27 @@ export async function startDashboardServer(port: number): Promise<void> {
     if (req.method === "OPTIONS") {
       res.writeHead(204, {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type",
       });
       res.end();
+      return;
+    }
+
+    // Handle POST for feedback
+    if (req.method === "POST") {
+      const url = req.url ?? "/";
+      const pathname = getPathname(url);
+      if (pathname === "/api/distilled/feedback") {
+        try {
+          handleDistilledFeedback(memDb, accessDb, config, req, res);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          sendError(res, message, 500);
+        }
+        return;
+      }
+      sendError(res, "Method not allowed", 405);
       return;
     }
 
@@ -482,6 +517,18 @@ export async function startDashboardServer(port: number): Promise<void> {
     if (obsMatch) {
       try {
         handleObservationDetail(memDb, accessDb, config, query, res, parseInt(obsMatch[1], 10));
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        sendError(res, message, 500);
+      }
+      return;
+    }
+
+    // Dynamic route: /api/profiles/:devName
+    const profileMatch = pathname.match(/^\/api\/profiles\/([^/]+)$/);
+    if (profileMatch && profileMatch[1] !== "devs") {
+      try {
+        handleProfileDev(memDb, accessDb, config, query, res, decodeURIComponent(profileMatch[1]));
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         sendError(res, message, 500);

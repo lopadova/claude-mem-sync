@@ -35,11 +35,19 @@ jobs:
             --cap 500 \
             --retention-days 30
 
-      - name: Commit merged memories
+      - name: Generate developer profiles
+        run: |
+          mem-sync profile \
+            --all \
+            --contributions-dir contributions/ \
+            --output-dir merged/
+        continue-on-error: true
+
+      - name: Commit merged memories and profiles
         run: |
           git config user.name "mem-sync-bot"
           git config user.email "mem-sync-bot@users.noreply.github.com"
-          git add merged/ .merge-state.json contributions/
+          git add merged/ profiles/ .merge-state.json contributions/
           git diff --cached --quiet || git commit -m "chore: merge developer memories [mem-sync]"
           git pull --rebase || true
           git push

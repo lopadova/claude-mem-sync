@@ -4,3 +4,5 @@ dist/
 *.db-wal
 *.db-shm
 .tmp/
+.claude/settings.local.json
+.playwright-mcp/
