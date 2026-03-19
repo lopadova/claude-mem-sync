@@ -145,6 +145,8 @@ export default async function run(args: ParsedArgs): Promise<void> {
     for (const filePath of cleanedUp) {
       logger.info(`  deleted: ${filePath}`);
     }
+    // Re-save merge state with cleaned-up entries removed
+    writeMergeState(stateFilePath, mergeState);
   }
 
   console.log(
