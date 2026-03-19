@@ -19,6 +19,7 @@ export interface ParsedArgs {
   outputDir: string | null;
   stateFile: string | null;
   cap: number | null;
+  retentionDays: number | null;
   /** Raw remaining positional args */
   rest: string[];
 }
@@ -91,6 +92,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     outputDir: null,
     stateFile: null,
     cap: null,
+    retentionDays: null,
     rest: [],
   };
 
@@ -142,6 +144,14 @@ function parseArgs(argv: string[]): ParsedArgs {
         if (argv[i] !== undefined) {
           const n = Number(argv[i]);
           args.cap = Number.isFinite(n) ? n : null;
+        }
+        break;
+
+      case "--retention-days":
+        i++;
+        if (argv[i] !== undefined) {
+          const n = Number(argv[i]);
+          args.retentionDays = Number.isFinite(n) && n > 0 ? n : null;
         }
         break;
 

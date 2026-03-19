@@ -11,6 +11,7 @@ export const LOGS_DIR = join(CONFIG_DIR, "logs");
 export const DEFAULT_CLAUDE_MEM_DB = join(homedir(), ".claude-mem", "claude-mem.db");
 
 export const DEFAULT_MERGE_CAP = 500;
+export const DEFAULT_CONTRIBUTION_RETENTION_DAYS = 30;
 export const DEFAULT_PRUNE_OLDER_THAN_DAYS = 90;
 export const DEFAULT_PRUNE_SCORE_THRESHOLD = 0.3;
 export const DEFAULT_ACCESS_WINDOW_MONTHS = 6;

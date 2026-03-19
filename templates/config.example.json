@@ -10,7 +10,8 @@
     "mergeCapPerProject": 500,
     "exportSchedule": "friday:16:00",
     "logLevel": "info",
-    "claudeMemDbPath": "~/.claude-mem/claude-mem.db"
+    "claudeMemDbPath": "~/.claude-mem/claude-mem.db",
+    "contributionRetentionDays": 30
   },
   "projects": {
     "my-project": {

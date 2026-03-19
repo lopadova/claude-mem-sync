@@ -1,9 +1,9 @@
 import { join, relative } from "path";
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, unlinkSync } from "fs";
 import { sha256 } from "../core/compat";
 import { deduplicateObservations, applyEvictionCap } from "../core/merger";
 import { logger } from "../core/logger";
-import { EXPORT_JSON_VERSION, PACKAGE_VERSION, DEFAULT_MERGE_CAP, DEFAULT_KEEP_TAGS } from "../core/constants";
+import { EXPORT_JSON_VERSION, PACKAGE_VERSION, DEFAULT_MERGE_CAP, DEFAULT_KEEP_TAGS, DEFAULT_CONTRIBUTION_RETENTION_DAYS } from "../core/constants";
 import type { Observation, ExportFile } from "../types/observation";
 import type { MergeState, ProjectMergeState, ProcessedFile } from "../types/merge-state";
 import type { ParsedArgs } from "../cli";
@@ -13,6 +13,7 @@ export default async function run(args: ParsedArgs): Promise<void> {
   const outputDir = args.outputDir ?? "merged";
   const stateFilePath = args.stateFile ?? ".merge-state.json";
   const cap = args.cap ?? DEFAULT_MERGE_CAP;
+  const retentionDays = args.retentionDays ?? DEFAULT_CONTRIBUTION_RETENTION_DAYS;
 
   if (!existsSync(contributionsDir)) {
     logger.info(`No contributions directory found at "${contributionsDir}". Nothing to merge.`);
@@ -136,6 +137,15 @@ export default async function run(args: ParsedArgs): Promise<void> {
   // Save merge state
   mergeState.lastMergedAt = Math.floor(Date.now() / 1000);
   writeMergeState(stateFilePath, mergeState);
+
+  // Cleanup old processed contribution files beyond retention period
+  const cleanedUp = cleanupOldContributions(mergeState, retentionDays);
+  if (cleanedUp.length > 0) {
+    logger.info(`Cleaned up ${cleanedUp.length} old contribution file(s) beyond ${retentionDays}-day retention:`);
+    for (const filePath of cleanedUp) {
+      logger.info(`  deleted: ${filePath}`);
+    }
+  }
 
   console.log(
     `\nMerge complete: processed ${totalNewFiles} new contribution file(s) across ${projectDirs.length} project(s).`,
@@ -324,4 +334,39 @@ function computeDiffusion(
 
 function computeHash(content: string): string {
   return sha256(content);
+}
+
+/**
+ * Remove processed contribution files older than the retention period.
+ * Only deletes files that are tracked in the merge state's processedFiles.
+ */
+function cleanupOldContributions(mergeState: MergeState, retentionDays: number): string[] {
+  const cutoffEpoch = Math.floor(Date.now() / 1000) - retentionDays * 86400;
+  const deleted: string[] = [];
+
+  for (const projectName of Object.keys(mergeState.projects)) {
+    const projectState = mergeState.projects[projectName];
+    const toDelete: string[] = [];
+
+    for (const [relPath, fileInfo] of Object.entries(projectState.processedFiles)) {
+      if (fileInfo.processedAt < cutoffEpoch) {
+        toDelete.push(relPath);
+      }
+    }
+
+    for (const relPath of toDelete) {
+      try {
+        if (existsSync(relPath)) {
+          unlinkSync(relPath);
+          deleted.push(relPath);
+        }
+        // Remove from merge state regardless (file may already be gone)
+        delete projectState.processedFiles[relPath];
+      } catch (err) {
+        logger.warn(`Failed to delete old contribution file: ${relPath}`, { error: String(err) });
+      }
+    }
+  }
+
+  return deleted;
 }

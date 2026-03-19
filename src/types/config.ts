@@ -9,6 +9,7 @@ import {
   DEFAULT_CLAUDE_MEM_DB,
   DEFAULT_KEEP_TAGS,
   DEFAULT_ACCESS_WINDOW_MONTHS,
+  DEFAULT_CONTRIBUTION_RETENTION_DAYS,
 } from "../core/constants";
 
 export const ScoringWeightsSchema = z.object({
@@ -56,6 +57,7 @@ export const GlobalConfigSchema = z.object({
   exportSchedule: z.string().default(DEFAULT_EXPORT_SCHEDULE),
   logLevel: z.enum(["debug", "info", "warn", "error"]).default(DEFAULT_LOG_LEVEL),
   claudeMemDbPath: z.string().default(DEFAULT_CLAUDE_MEM_DB),
+  contributionRetentionDays: z.number().int().positive().default(DEFAULT_CONTRIBUTION_RETENTION_DAYS),
 });
 
 export const ConfigSchema = z.object({
