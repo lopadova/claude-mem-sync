@@ -48,8 +48,11 @@ Developer A                    GitHub (shared repo)              Developer B
 ## Quick Start
 
 ```bash
-# Install (requires Bun runtime)
+# Install with Bun (recommended)
 bun install -g claude-mem-sync
+
+# Or install with Node.js (v18+)
+npm install -g claude-mem-sync
 
 # Interactive setup
 mem-sync init
@@ -68,7 +71,7 @@ mem-sync import --all
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) runtime (v1.0+)
+- [Bun](https://bun.sh) (v1.0+) **or** [Node.js](https://nodejs.org/) (v18+)
 - [Git](https://git-scm.com/)
 - [GitHub CLI](https://cli.github.com/) (`gh`) — only required for PR review mode
 - [claude-mem](https://docs.claude-mem.ai) installed and configured
@@ -76,7 +79,11 @@ mem-sync import --all
 ### Install CLI
 
 ```bash
+# With Bun (recommended — faster, built-in SQLite)
 bun install -g claude-mem-sync
+
+# With Node.js (uses better-sqlite3)
+npm install -g claude-mem-sync
 ```
 
 ### Install Claude Code Plugin (recommended)

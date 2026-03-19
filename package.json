@@ -14,8 +14,13 @@
   "dependencies": {
     "zod": "^3.23.0"
   },
+  "optionalDependencies": {
+    "better-sqlite3": "^11.0.0"
+  },
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/node": "^20.0.0",
     "typescript": "^5.4.0"
   },
   "keywords": ["claude", "claude-mem", "memory", "team", "sync", "ai"],
@@ -26,6 +31,7 @@
     "url": "git+https://github.com/lopad/claude-mem-sync.git"
   },
   "engines": {
+    "node": ">=18.0.0",
     "bun": ">=1.0.0"
   }
 }

@@ -1,5 +1,6 @@
 import type { ParsedArgs } from "../cli";
 import { loadConfig, getEnabledProjects, resolveProjectConfig } from "../core/config";
+import { copyFile } from "../core/compat";
 import {
   openMemDbWritable,
   queryObservations,
@@ -36,7 +37,7 @@ export default async function run(_args: ParsedArgs): Promise<void> {
 
   // 3. Backup: copy DB file to {dbPath}.backup
   const backupPath = `${dbPath}.backup`;
-  await Bun.write(backupPath, Bun.file(dbPath));
+  copyFile(dbPath, backupPath);
   logger.info(`Backup created: ${backupPath}`);
 
   // 4. Open DB writable

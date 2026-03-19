@@ -1,22 +1,24 @@
-import { Database } from "bun:sqlite";
+import { createDatabase, getFileSize, type SqliteDatabase } from "./compat";
 import { BUSY_TIMEOUT_MS } from "./constants";
 import { logger } from "./logger";
 import type { Observation } from "../types/observation";
 
-export function openMemDb(dbPath: string): Database {
-  const db = new Database(dbPath, { readonly: true });
+export type { SqliteDatabase };
+
+export function openMemDb(dbPath: string): SqliteDatabase {
+  const db = createDatabase(dbPath, { readonly: true });
   db.exec(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`);
   return db;
 }
 
-export function openMemDbWritable(dbPath: string): Database {
-  const db = new Database(dbPath);
+export function openMemDbWritable(dbPath: string): SqliteDatabase {
+  const db = createDatabase(dbPath);
   db.exec(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`);
   db.exec("PRAGMA journal_mode = WAL");
   return db;
 }
 
-export function queryObservations(db: Database, project: string): Observation[] {
+export function queryObservations(db: SqliteDatabase, project: string): Observation[] {
   const stmt = db.prepare(
     `SELECT id, sdk_session_id, type, title, narrative, text, facts, concepts, files, created_at_epoch
      FROM observations
@@ -26,7 +28,7 @@ export function queryObservations(db: Database, project: string): Observation[] 
   return stmt.all(project) as Observation[];
 }
 
-export function getObservationCount(db: Database, project?: string): number {
+export function getObservationCount(db: SqliteDatabase, project?: string): number {
   if (project) {
     const row = db.prepare("SELECT COUNT(*) as cnt FROM observations WHERE project = ?").get(project) as { cnt: number };
     return row.cnt;
@@ -35,18 +37,18 @@ export function getObservationCount(db: Database, project?: string): number {
   return row.cnt;
 }
 
-export function getSessionCount(db: Database): number {
+export function getSessionCount(db: SqliteDatabase): number {
   const row = db.prepare("SELECT COUNT(*) as cnt FROM sdk_sessions").get() as { cnt: number };
   return row.cnt;
 }
 
-export function getSummaryCount(db: Database): number {
+export function getSummaryCount(db: SqliteDatabase): number {
   const row = db.prepare("SELECT COUNT(*) as cnt FROM session_summaries").get() as { cnt: number };
   return row.cnt;
 }
 
 export function checkDuplicate(
-  db: Database,
+  db: SqliteDatabase,
   sdkSessionId: number,
   title: string,
   createdAtEpoch: number
@@ -59,7 +61,7 @@ export function checkDuplicate(
   return row !== null;
 }
 
-export function insertObservation(db: Database, obs: Observation, project: string): void {
+export function insertObservation(db: SqliteDatabase, obs: Observation, project: string): void {
   db.prepare(
     `INSERT INTO observations (sdk_session_id, type, title, narrative, text, facts, concepts, files, created_at_epoch, project)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
@@ -76,12 +78,12 @@ const ALLOWED_FTS_TABLES: ReadonlySet<string> = new Set([
   "user_prompts_fts",
 ]);
 
-export function rebuildFts(db: Database): void {
+export function rebuildFts(db: SqliteDatabase): void {
   for (const table of ALLOWED_FTS_TABLES) {
     try {
-      // Note: FTS5 rebuild requires table name interpolation (can't use ? for table names).
+      // FTS5 rebuild requires table name interpolation (can't use ? for table names).
       // Safety: table is validated against ALLOWED_FTS_TABLES whitelist above.
-      db.run(`INSERT INTO ${table}(${table}) VALUES('rebuild')`);
+      db.prepare(`INSERT INTO ${table}(${table}) VALUES('rebuild')`).run();
       logger.debug(`Rebuilt FTS5 index: ${table}`);
     } catch (e) {
       logger.warn(`Failed to rebuild FTS5 index ${table}: ${e}`);
@@ -89,16 +91,11 @@ export function rebuildFts(db: Database): void {
   }
 }
 
-export function runIntegrityCheck(db: Database): string {
+export function runIntegrityCheck(db: SqliteDatabase): string {
   const row = db.prepare("PRAGMA integrity_check").get() as { integrity_check: string };
   return row.integrity_check;
 }
 
 export function getDbSizeBytes(dbPath: string): number {
-  try {
-    const file = Bun.file(dbPath);
-    return file.size;
-  } catch {
-    return 0;
-  }
+  return getFileSize(dbPath);
 }

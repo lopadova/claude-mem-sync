@@ -1,5 +1,6 @@
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
+import { sha256 } from "../core/compat";
 import { loadConfig, resolveProjectConfig, getEnabledProjects } from "../core/config";
 import { openMemDbWritable, checkDuplicate, insertObservation, rebuildFts, runIntegrityCheck } from "../core/mem-db";
 import { openAccessDb, isFileImported, logImport } from "../core/access-db";
@@ -69,10 +70,8 @@ async function importProject(
 
   const fileContent = readFileSync(mergedPath, "utf-8");
 
-  // Compute SHA-256 hash
-  const hasher = new Bun.CryptoHasher("sha256");
-  hasher.update(fileContent);
-  const fileHash = hasher.digest("hex");
+  // Compute SHA-256 hash using Node.js crypto (works in both Bun and Node)
+  const fileHash = sha256(fileContent);
 
   // Check if already imported
   if (isFileImported(accessDb, projectName, fileHash)) {

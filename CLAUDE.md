@@ -2,13 +2,14 @@
 
 ## What this project is
 
-**claude-mem-sync** is a Bun + TypeScript CLI tool and Claude Code plugin that enables curated, filtered, scored team memory sharing for [claude-mem](https://docs.claude-mem.ai). It syncs AI memories across developers via git.
+**claude-mem-sync** is a TypeScript CLI tool and Claude Code plugin that enables curated, filtered, scored team memory sharing for [claude-mem](https://docs.claude-mem.ai). It syncs AI memories across developers via git.
 
 - **Package name**: `claude-mem-sync`
 - **CLI binary**: `mem-sync`
 - **License**: MIT
-- **Runtime**: Bun (required — uses `bun:sqlite` for native SQLite)
-- **Only runtime dependency**: Zod (config validation)
+- **Runtime**: Bun (v1.0+) or Node.js (v18+)
+- **SQLite**: `bun:sqlite` on Bun, `better-sqlite3` on Node.js (auto-detected via `src/core/compat.ts`)
+- **Runtime deps**: Zod (config validation), better-sqlite3 (optional — only needed on Node.js)
 
 ## Architecture
 
@@ -143,14 +144,15 @@ Key paths:
 
 1. **Never modify claude-mem's DB schema** — we are a consumer, not an owner
 2. **All SQL uses parameterized queries** (`?` placeholders) — no string interpolation
-3. **All shell commands use array args** via `Bun.spawn` — never pass strings to a shell
+3. **All shell commands use array args** via `spawnCommand()` from compat.ts — never pass strings to a shell
 4. **All filters default to empty = no export** — never leak data by default
 5. **Run `bun test` after any change** — all 72 tests must pass
 6. **Run `bunx tsc --noEmit` after any change** — zero type errors
-7. **Imports from `bun:sqlite`** — this is Bun-only, no Node.js/better-sqlite3 compatibility
-8. **The hook must never block Claude** — 5s timeout, all errors caught silently, nothing written to stdout (stdout goes back to Claude Code)
-9. **Composite dedup key** is `sdk_session_id + title + created_at_epoch` — never use the `id` field for dedup (differs across machines)
-10. **Keep Zod as the only runtime dependency** — no unnecessary deps
+7. **Never import `bun:sqlite` directly** — use `createDatabase()` from `src/core/compat.ts` which auto-detects Bun vs Node.js
+8. **Never use `Bun.*` APIs directly** — use the wrappers in `src/core/compat.ts` (spawnCommand, sha256, copyFile, getFileSize, readAllStdin)
+9. **The hook must never block Claude** — 5s timeout, all errors caught silently, nothing written to stdout (stdout goes back to Claude Code)
+10. **Composite dedup key** is `sdk_session_id + title + created_at_epoch` — never use the `id` field for dedup (differs across machines)
+11. **Keep deps minimal** — Zod (required), better-sqlite3 (optional, Node.js only)
 
 ## Specs and docs
 

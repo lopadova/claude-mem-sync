@@ -1,9 +1,9 @@
-import { Database } from "bun:sqlite";
+import { createDatabase, type SqliteDatabase } from "../../src/core/compat";
 import type { Observation } from "../../src/types/observation";
 
 /** Create an in-memory DB with claude-mem-like schema for testing */
-export function createTestMemDb(): Database {
-  const db = new Database(":memory:");
+export function createTestMemDb(): SqliteDatabase {
+  const db = createDatabase(":memory:");
   db.exec(`
     CREATE TABLE observations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,7 +47,7 @@ export function createTestMemDb(): Database {
 }
 
 /** Insert a test observation and return its ID */
-export function insertTestObservation(db: Database, obs: Partial<Observation> & { project?: string }): number {
+export function insertTestObservation(db: SqliteDatabase, obs: Partial<Observation> & { project?: string }): number {
   const result = db.prepare(
     `INSERT INTO observations (sdk_session_id, type, title, narrative, text, facts, concepts, files, created_at_epoch, project)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`

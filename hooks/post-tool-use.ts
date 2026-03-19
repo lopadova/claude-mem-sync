@@ -12,6 +12,7 @@
 import { openAccessDb, logAccess } from "../src/core/access-db";
 import { loadConfig, getEnabledProjects } from "../src/core/config";
 import { LOGS_DIR } from "../src/core/constants";
+import { readAllStdin } from "../src/core/compat";
 import { mkdirSync, appendFileSync } from "fs";
 import { join } from "path";
 
@@ -131,12 +132,7 @@ function resolveProject(cwd: string): string | null {
 // ── Main ───────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  // Read all stdin
-  const chunks: Buffer[] = [];
-  for await (const chunk of Bun.stdin.stream()) {
-    chunks.push(chunk as Buffer);
-  }
-  const raw = Buffer.concat(chunks).toString("utf-8");
+  const raw = await readAllStdin();
 
   if (!raw.trim()) return;
 

@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
+import { spawnCommand, spawnWithStdin } from "../core/compat";
 import { loadConfig } from "../core/config";
 import { logger } from "../core/logger";
 import { LOGS_DIR } from "../core/constants";
@@ -39,13 +40,9 @@ export default async function run(_args: ParsedArgs): Promise<void> {
 async function installCron(entries: ReturnType<typeof getDefaultEntries>): Promise<void> {
   const crontab = generateCrontabEntries(entries);
 
-  // Append to existing crontab, removing any previous claude-mem-sync entries
-  const proc = Bun.spawn(["crontab", "-l"], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const existing = await new Response(proc.stdout).text();
-  await proc.exited;
+  // Read existing crontab
+  const result = await spawnCommand(["crontab", "-l"]);
+  const existing = result.stdout;
 
   // Remove old entries
   const filtered = existing
@@ -58,13 +55,8 @@ async function installCron(entries: ReturnType<typeof getDefaultEntries>): Promi
 
   const newCrontab = filtered ? `${filtered}\n${crontab}\n` : `${crontab}\n`;
 
-  // Install new crontab
-  const install = Bun.spawn(["crontab", "-"], {
-    stdin: "pipe",
-  });
-  install.stdin.write(newCrontab);
-  install.stdin.end();
-  await install.exited;
+  // Install new crontab via stdin
+  await spawnWithStdin(["crontab", "-"], newCrontab);
 
   console.log("Installed cron jobs:");
   console.log(crontab);
@@ -83,11 +75,7 @@ async function installLaunchd(entries: ReturnType<typeof getDefaultEntries>): Pr
     logger.info(`Wrote ${filepath}`);
 
     // Load the agent
-    const proc = Bun.spawn(["launchctl", "load", filepath], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    await proc.exited;
+    await spawnCommand(["launchctl", "load", filepath]);
 
     console.log(`Loaded launch agent: ${filename}`);
   }
@@ -100,16 +88,11 @@ async function installSchtasks(entries: ReturnType<typeof getDefaultEntries>): P
     const cmd = generateSchtasksCommand(entry);
     logger.info(`Running: ${cmd}`);
 
-    // schtasks requires cmd.exe on Windows
-    const proc = Bun.spawn(["cmd", "/c", cmd], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const stderr = await new Response(proc.stderr).text();
-    const exitCode = await proc.exited;
+    // schtasks requires cmd on Windows
+    const result = await spawnCommand(["cmd", "/c", cmd]);
 
-    if (exitCode !== 0) {
-      logger.error(`Failed to create task "${entry.name}": ${stderr.trim()}`);
+    if (result.exitCode !== 0) {
+      logger.error(`Failed to create task "${entry.name}": ${result.stderr}`);
     } else {
       console.log(`Created scheduled task: ${entry.name}`);
     }

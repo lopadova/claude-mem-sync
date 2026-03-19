@@ -1,10 +1,11 @@
 import { tmpdir } from "os";
 import { join } from "path";
 import { randomBytes } from "crypto";
+import { spawnCommand } from "./compat";
 import { logger } from "./logger";
 
 /**
- * Internal helper — runs a command via Bun.spawn (array args, no shell)
+ * Internal helper — runs a command via array args (no shell)
  * and returns stdout + stderr as strings. Throws on non-zero exit.
  */
 async function runCommand(
@@ -13,26 +14,15 @@ async function runCommand(
 ): Promise<{ stdout: string; stderr: string }> {
   logger.debug("runCommand", { cmd, cwd: options.cwd });
 
-  const proc = Bun.spawn(cmd, {
-    cwd: options.cwd,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  const result = await spawnCommand(cmd, options);
 
-  const [stdoutBuf, stderrBuf] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-
-  const exitCode = await proc.exited;
-
-  if (exitCode !== 0) {
-    const errMsg = `Command failed (exit ${exitCode}): ${cmd.join(" ")}\nstderr: ${stderrBuf.trim()}`;
+  if (result.exitCode !== 0) {
+    const errMsg = `Command failed (exit ${result.exitCode}): ${cmd.join(" ")}\nstderr: ${result.stderr}`;
     logger.error(errMsg);
     throw new Error(errMsg);
   }
 
-  return { stdout: stdoutBuf.trim(), stderr: stderrBuf.trim() };
+  return { stdout: result.stdout, stderr: result.stderr };
 }
 
 /**
@@ -116,31 +106,17 @@ export async function createPullRequest(
 /** Returns true if there are staged changes ready to commit. */
 export async function hasStagedChanges(repoDir: string): Promise<boolean> {
   logger.debug("Checking for staged changes", { repoDir });
-
-  const proc = Bun.spawn(["git", "diff", "--cached", "--quiet"], {
-    cwd: repoDir,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-
-  const exitCode = await proc.exited;
-
+  const result = await spawnCommand(["git", "diff", "--cached", "--quiet"], { cwd: repoDir });
   // exit 0 = no staged changes, exit 1 = there are staged changes
-  return exitCode !== 0;
+  return result.exitCode !== 0;
 }
 
 /** Returns true if the `gh` CLI is available on the system. */
 export async function checkGhCli(): Promise<boolean> {
   logger.debug("Checking for gh CLI availability");
-
   try {
-    const proc = Bun.spawn(["gh", "--version"], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-
-    const exitCode = await proc.exited;
-    return exitCode === 0;
+    const result = await spawnCommand(["gh", "--version"]);
+    return result.exitCode === 0;
   } catch {
     return false;
   }

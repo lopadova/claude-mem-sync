@@ -1,5 +1,6 @@
 import { join, relative } from "path";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "fs";
+import { sha256 } from "../core/compat";
 import { deduplicateObservations, applyEvictionCap } from "../core/merger";
 import { logger } from "../core/logger";
 import { EXPORT_JSON_VERSION, PACKAGE_VERSION, DEFAULT_MERGE_CAP, DEFAULT_KEEP_TAGS } from "../core/constants";
@@ -322,7 +323,5 @@ function computeDiffusion(
 }
 
 function computeHash(content: string): string {
-  const hasher = new Bun.CryptoHasher("sha256");
-  hasher.update(content);
-  return hasher.digest("hex");
+  return sha256(content);
 }

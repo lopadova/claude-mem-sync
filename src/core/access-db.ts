@@ -1,8 +1,10 @@
-import { Database } from "bun:sqlite";
 import { mkdirSync } from "fs";
 import { dirname } from "path";
+import { createDatabase, type SqliteDatabase } from "./compat";
 import { ACCESS_DB_PATH, BUSY_TIMEOUT_MS } from "./constants";
 import { logger } from "./logger";
+
+export type { SqliteDatabase };
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS access_log (
@@ -37,9 +39,9 @@ CREATE TABLE IF NOT EXISTS export_log (
 CREATE INDEX IF NOT EXISTS idx_export_time ON export_log(project, exported_at DESC);
 `;
 
-export function openAccessDb(dbPath: string = ACCESS_DB_PATH): Database {
+export function openAccessDb(dbPath: string = ACCESS_DB_PATH): SqliteDatabase {
   mkdirSync(dirname(dbPath), { recursive: true });
-  const db = new Database(dbPath);
+  const db = createDatabase(dbPath);
   db.exec(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`);
   db.exec("PRAGMA journal_mode = WAL");
   db.exec(SCHEMA_SQL);
@@ -47,7 +49,7 @@ export function openAccessDb(dbPath: string = ACCESS_DB_PATH): Database {
 }
 
 export function logAccess(
-  db: Database,
+  db: SqliteDatabase,
   observationId: number,
   project: string,
   sessionId: string | null,
@@ -60,7 +62,7 @@ export function logAccess(
 }
 
 export function getAccessCount(
-  db: Database,
+  db: SqliteDatabase,
   observationId: number,
   project: string,
   windowMonths: number
@@ -73,7 +75,7 @@ export function getAccessCount(
   return row.cnt;
 }
 
-export function getMaxAccessCount(db: Database, project: string, windowMonths: number): number {
+export function getMaxAccessCount(db: SqliteDatabase, project: string, windowMonths: number): number {
   const cutoff = Math.floor(Date.now() / 1000) - windowMonths * 30 * 86400;
   const row = db.prepare(
     `SELECT MAX(cnt) as max_cnt FROM (
@@ -85,12 +87,12 @@ export function getMaxAccessCount(db: Database, project: string, windowMonths: n
   return row.max_cnt ?? 0;
 }
 
-export function getTotalAccessLogEntries(db: Database): number {
+export function getTotalAccessLogEntries(db: SqliteDatabase): number {
   const row = db.prepare("SELECT COUNT(*) as cnt FROM access_log").get() as { cnt: number };
   return row.cnt;
 }
 
-export function isFileImported(db: Database, project: string, fileHash: string): boolean {
+export function isFileImported(db: SqliteDatabase, project: string, fileHash: string): boolean {
   const row = db.prepare(
     `SELECT 1 FROM import_log WHERE project = ? AND file_hash = ? LIMIT 1`
   ).get(project, fileHash);
@@ -98,7 +100,7 @@ export function isFileImported(db: Database, project: string, fileHash: string):
 }
 
 export function logImport(
-  db: Database,
+  db: SqliteDatabase,
   project: string,
   fileHash: string,
   count: number,
@@ -111,7 +113,7 @@ export function logImport(
 }
 
 export function logExport(
-  db: Database,
+  db: SqliteDatabase,
   project: string,
   count: number,
   filePath: string,
@@ -123,21 +125,21 @@ export function logExport(
   ).run(project, Math.floor(Date.now() / 1000), count, filePath, pushedTo);
 }
 
-export function getLastExport(db: Database, project: string): { exported_at: number; observations_count: number } | null {
+export function getLastExport(db: SqliteDatabase, project: string): { exported_at: number; observations_count: number } | null {
   return db.prepare(
     `SELECT exported_at, observations_count FROM export_log
      WHERE project = ? ORDER BY exported_at DESC LIMIT 1`
   ).get(project) as { exported_at: number; observations_count: number } | null;
 }
 
-export function getLastImport(db: Database, project: string): { imported_at: number; observations_count: number } | null {
+export function getLastImport(db: SqliteDatabase, project: string): { imported_at: number; observations_count: number } | null {
   return db.prepare(
     `SELECT imported_at, observations_count FROM import_log
      WHERE project = ? ORDER BY imported_at DESC LIMIT 1`
   ).get(project) as { imported_at: number; observations_count: number } | null;
 }
 
-export function pruneOldAccessEntries(db: Database, windowMonths: number): number {
+export function pruneOldAccessEntries(db: SqliteDatabase, windowMonths: number): number {
   const cutoff = Math.floor(Date.now() / 1000) - windowMonths * 30 * 86400;
   const result = db.prepare(
     `DELETE FROM access_log WHERE accessed_at < ?`

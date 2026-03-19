@@ -2,7 +2,7 @@
   {
     "event": "PostToolUse",
     "matcher": "mcp__plugin_claude-mem_mcp-search__.*",
-    "_note": "Tracks access to claude-mem observations via MCP tools. Adjust matcher prefix if plugin is installed under a different name.",
+    "_note": "Tracks access to claude-mem observations via MCP tools. Adjust matcher prefix if plugin is installed under a different name. Replace 'bun' with 'npx tsx' if using Node.js instead of Bun.",
     "hooks": [
       {
         "type": "command",

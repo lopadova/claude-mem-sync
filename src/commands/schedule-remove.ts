@@ -1,6 +1,7 @@
 import { existsSync, unlinkSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
+import { spawnCommand, spawnWithStdin } from "../core/compat";
 import { logger } from "../core/logger";
 import type { ParsedArgs } from "../cli";
 
@@ -26,15 +27,10 @@ export default async function run(_args: ParsedArgs): Promise<void> {
 }
 
 async function removeCron(): Promise<void> {
-  const proc = Bun.spawn(["crontab", "-l"], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const existing = await new Response(proc.stdout).text();
-  await proc.exited;
+  const result = await spawnCommand(["crontab", "-l"]);
 
   // Remove all claude-mem-sync entries
-  const filtered = existing
+  const filtered = result.stdout
     .split("\n")
     .filter((line) => {
       return !line.includes("claude-mem-sync") && !line.includes("mem-sync");
@@ -42,12 +38,7 @@ async function removeCron(): Promise<void> {
     .join("\n")
     .trim();
 
-  const install = Bun.spawn(["crontab", "-"], {
-    stdin: "pipe",
-  });
-  install.stdin.write(filtered ? `${filtered}\n` : "");
-  install.stdin.end();
-  await install.exited;
+  await spawnWithStdin(["crontab", "-"], filtered ? `${filtered}\n` : "");
 
   console.log("Removed claude-mem-sync cron entries.");
 }
@@ -61,11 +52,7 @@ async function removeLaunchd(): Promise<void> {
 
     if (existsSync(filepath)) {
       // Unload first
-      const proc = Bun.spawn(["launchctl", "unload", filepath], {
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-      await proc.exited;
+      await spawnCommand(["launchctl", "unload", filepath]);
 
       unlinkSync(filepath);
       console.log(`Removed: ${filename}`);
@@ -77,14 +64,9 @@ async function removeLaunchd(): Promise<void> {
 
 async function removeSchtasks(): Promise<void> {
   for (const name of TASK_NAMES) {
-    const cmd = `schtasks /delete /tn "${name}" /f`;
-    const proc = Bun.spawn(["cmd", "/c", cmd], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const exitCode = await proc.exited;
+    const result = await spawnCommand(["cmd", "/c", `schtasks /delete /tn "${name}" /f`]);
 
-    if (exitCode === 0) {
+    if (result.exitCode === 0) {
       console.log(`Deleted task: ${name}`);
     } else {
       logger.warn(`Task "${name}" not found or could not be deleted.`);
