@@ -71,7 +71,64 @@ function handleOverview(
   res: ServerResponse,
 ): void {
   const stats = getOverviewStats(memDb, accessDb, config);
-  sendJson(res, stats);
+
+  // Build per-project details for the frontend
+  const projects: Array<Record<string, unknown>> = [];
+  for (const [name, proj] of Object.entries(config.projects)) {
+    const memProject = proj.memProject ?? name;
+    const obsCountRow = memDb.prepare(
+      "SELECT COUNT(*) as cnt FROM observations WHERE project = ?",
+    ).get(memProject) as { cnt: number };
+
+    // Last export/import from access.db
+    const lastExp = accessDb.prepare(
+      "SELECT exported_at, observations_count FROM export_log WHERE project = ? ORDER BY exported_at DESC LIMIT 1",
+    ).get(name) as { exported_at: number; observations_count: number } | null;
+    const lastImp = accessDb.prepare(
+      "SELECT imported_at, observations_count FROM import_log WHERE project = ? ORDER BY imported_at DESC LIMIT 1",
+    ).get(name) as { imported_at: number; observations_count: number } | null;
+
+    projects.push({
+      name,
+      enabled: proj.enabled !== false,
+      remote: proj.remote?.repo ?? "-",
+      provider: proj.remote?.type ?? "github",
+      observationCount: obsCountRow.cnt,
+      cap: config.global.mergeCapPerProject,
+      lastExport: lastExp,
+      lastImport: lastImp,
+    });
+  }
+
+  // DB sizes
+  const { getFileSize } = require("./compat");
+  const dbSize = getFileSize(config.global.claudeMemDbPath);
+  const accessDbSize = getFileSize(
+    require("./constants").ACCESS_DB_PATH,
+  );
+
+  // Session + summary counts (may fail if table doesn't exist)
+  let sessionCount = 0;
+  let summaryCount = 0;
+  try {
+    const sRow = memDb.prepare("SELECT COUNT(*) as cnt FROM sdk_sessions").get() as { cnt: number };
+    sessionCount = sRow.cnt;
+  } catch { /* table may not exist */ }
+  try {
+    const sumRow = memDb.prepare("SELECT COUNT(*) as cnt FROM session_summaries").get() as { cnt: number };
+    summaryCount = sumRow.cnt;
+  } catch { /* table may not exist */ }
+
+  sendJson(res, {
+    ...stats,
+    observationCount: stats.totalObservations,
+    sessionCount,
+    summaryCount,
+    accessLogEntries: stats.totalAccessEvents,
+    dbSize,
+    accessDbSize,
+    projects,
+  });
 }
 
 function handleObservations(
@@ -109,7 +166,7 @@ function handleObservations(
   const countSql = "SELECT COUNT(*) as total FROM observations " + whereClause;
   const countRow = memDb.prepare(countSql).get(...params) as { total: number };
 
-  const dataSql = "SELECT id, sdk_session_id, type, title, narrative, text, facts, concepts, files, created_at_epoch, project FROM observations " + whereClause + " ORDER BY created_at_epoch DESC LIMIT ? OFFSET ?";
+  const dataSql = "SELECT id, type, title, narrative, text, facts, concepts, created_at_epoch, project FROM observations " + whereClause + " ORDER BY created_at_epoch DESC LIMIT ? OFFSET ?";
   const dataParams = [...params, limit, offset];
   const rows = memDb.prepare(dataSql).all(...dataParams);
 
@@ -144,7 +201,7 @@ function handleHeatmap(
 ): void {
   const months = Math.min(24, Math.max(1, parseInt(query.months || "6", 10) || 6));
   const data = getAccessHeatmap(accessDb, months);
-  sendJson(res, data);
+  sendJson(res, { heatmap: data });
 }
 
 function handleSyncHistory(
@@ -178,7 +235,7 @@ function handleTypeDistribution(
 ): void {
   const project = query.project || undefined;
   const data = getTypeDistribution(memDb, project);
-  sendJson(res, data);
+  sendJson(res, { distribution: data });
 }
 
 function handleTimeline(
@@ -189,7 +246,7 @@ function handleTimeline(
   res: ServerResponse,
 ): void {
   const data = getSyncTimeline(accessDb);
-  sendJson(res, data);
+  sendJson(res, { timeline: data });
 }
 
 function handleScores(
@@ -199,15 +256,18 @@ function handleScores(
   query: Record<string, string>,
   res: ServerResponse,
 ): void {
-  const project = query.project || null;
+  const enabledNames = Object.keys(config.projects).filter(
+    (n) => config.projects[n].enabled !== false,
+  );
+  const project = query.project || enabledNames[0] || null;
   if (!project) {
-    sendError(res, "Missing required query parameter: project", 400);
+    sendJson(res, { scores: [] });
     return;
   }
   const keepTags = config.global.evictionKeepTagged ?? ["#keep"];
   const allScores = getObservationScores(memDb, accessDb, project, keepTags);
   const limit = Math.min(500, Math.max(1, parseInt(query.limit || "50", 10) || 50));
-  sendJson(res, allScores.slice(0, limit));
+  sendJson(res, { scores: allScores.slice(0, limit) });
 }
 
 function handleDevContributions(
@@ -218,7 +278,7 @@ function handleDevContributions(
   res: ServerResponse,
 ): void {
   const data = getDevContributions(accessDb);
-  sendJson(res, data);
+  sendJson(res, { contributions: data });
 }
 
 // -- Route table --

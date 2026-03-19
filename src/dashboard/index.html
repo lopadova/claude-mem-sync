@@ -70,7 +70,7 @@
 <script>
 var Q=function(s){return document.querySelector(s)},QQ=function(s){return document.querySelectorAll(s)};
 var F=function(p){return fetch(p).then(function(r){return r.json()}).catch(function(){return null})};
-var D=function(e){return e?new Date(e*1e3).toLocaleDateString("en",{year:"numeric",month:"short",day:"numeric"}):"-"};
+var D=function(e){if(!e)return"-";var ts=e>1e12?e:e*1e3;return new Date(ts).toLocaleDateString("en",{year:"numeric",month:"short",day:"numeric"})};
 var S=function(b){return b>1048576?(b/1048576).toFixed(1)+" MB":(b/1024).toFixed(0)+" KB"};
 var BG=function(t){var m={decision:"bd",bugfix:"bb",feature:"bf",discovery:"bw",refactor:"bv"};return "b "+(m[t]||"bg")};
 var P=1,L=50,C={};

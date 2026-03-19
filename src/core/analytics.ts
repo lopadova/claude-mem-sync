@@ -267,7 +267,7 @@ export function getObservationScores(
 }> {
   const observations = memDb
     .prepare(
-      `SELECT id, sdk_session_id, type, title, narrative, text, facts, concepts, files, created_at_epoch
+      `SELECT id, type, title, narrative, text, facts, concepts, created_at_epoch
        FROM observations WHERE project = ?
        ORDER BY created_at_epoch DESC`,
     )
