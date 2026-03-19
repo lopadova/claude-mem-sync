@@ -43,7 +43,12 @@ Developer A                    GitHub (shared repo)              Developer B
 - **Access tracking** — PostToolUse hook tracks which memories Claude actually uses
 - **Cross-platform scheduling** — automatic export/import via cron, launchd, or Task Scheduler
 - **PR review mode** — optional human review before memories enter the shared repo
-- **CI merge bot** — GitHub Action template for automated merging
+- **Multi-provider support** — GitHub, GitLab, and Bitbucket (including self-hosted)
+- **CI merge bot** — templates for GitHub Actions, GitLab CI, and Bitbucket Pipelines
+- **Web dashboard** — enterprise-grade dark-theme UI with charts, heatmaps, and analytics
+- **Rich analytics** — type distribution, access patterns, developer contributions, observation scoring
+- **Dual runtime** — works with both Bun and Node.js (v18+)
+- **Configurable cleanup** — automatic retention policy for old contribution files
 
 ## Quick Start
 
@@ -73,7 +78,7 @@ mem-sync import --all
 
 - [Bun](https://bun.sh) (v1.0+) **or** [Node.js](https://nodejs.org/) (v18+)
 - [Git](https://git-scm.com/)
-- [GitHub CLI](https://cli.github.com/) (`gh`) — only required for PR review mode
+- [GitHub CLI](https://cli.github.com/) (`gh`), [GitLab CLI](https://gitlab.com/gitlab-org/cli) (`glab`), or `curl` — only required for PR/MR review mode, depends on your provider
 - [claude-mem](https://docs.claude-mem.ai) installed and configured
 
 ### Install CLI
@@ -131,6 +136,7 @@ Created by `mem-sync init` or manually. See `templates/config.example.json` for 
 | `exportSchedule` | string | `"friday:16:00"` | Default export schedule |
 | `logLevel` | string | `"info"` | Log verbosity |
 | `claudeMemDbPath` | string | `~/.claude-mem/claude-mem.db` | Path to claude-mem's database |
+| `contributionRetentionDays` | number | `30` | Days to keep processed contribution files before auto-cleanup |
 
 ### Per-Project Settings
 
@@ -138,9 +144,11 @@ Created by `mem-sync init` or manually. See `templates/config.example.json` for 
 |-------|------|---------|-------------|
 | `enabled` | boolean | `true` | Whether this project participates in sync |
 | `memProject` | string | key name | Project name in claude-mem's DB |
-| `remote.repo` | string | **required** | GitHub repo (`owner/name`) |
+| `remote.type` | `"github"` \| `"gitlab"` \| `"bitbucket"` | `"github"` | Git provider |
+| `remote.repo` | string | **required** | Repo in `owner/name` format |
 | `remote.branch` | string | `"main"` | Branch to push/pull |
-| `remote.autoMerge` | boolean | `true` | Push directly or create PR |
+| `remote.autoMerge` | boolean | `true` | Push directly or create PR/MR |
+| `remote.host` | string | auto | Custom host for self-hosted instances (e.g., `git.company.com`) |
 | `export.types` | string[] | `[]` | Observation types to export |
 | `export.keywords` | string[] | `[]` | Keywords to match |
 | `export.tags` | string[] | `[]` | Tags to match (e.g., `#shared`) |
@@ -197,17 +205,37 @@ Install OS-specific scheduled tasks (cron on Linux, launchd on macOS, Task Sched
 
 Remove all scheduled tasks created by `schedule install`.
 
+### `mem-sync dashboard [--port <N>]`
+
+Launch a web dashboard at `http://localhost:3737` (default port). Features:
+
+- **Overview** — stat cards, project health, DB sizes, hook status
+- **Observations** — searchable, filterable table with pagination and scoring
+- **Analytics** — type distribution (doughnut), activity timeline (line), top scored (bar), developer contributions (bar)
+- **Access Map** — GitHub-style heatmap of daily access patterns, most accessed observations
+- **Sync History** — monthly export/import chart, recent exports/imports tables
+
+```bash
+mem-sync dashboard              # Opens at http://localhost:3737
+mem-sync dashboard --port 8080  # Custom port
+```
+
+The dashboard uses a dark theme with glassmorphism design, Chart.js visualizations, and animated counters. It reads directly from your local claude-mem DB and access.db — no network required.
+
 ### `mem-sync ci-merge`
 
-CI-only command for the GitHub Action. Merges contribution files into `merged/latest.json` with dedup, scoring, and cap enforcement.
+CI-only command for automated merging. Works with GitHub Actions, GitLab CI, and Bitbucket Pipelines.
 
 ```bash
 mem-sync ci-merge \
   --contributions-dir contributions/ \
   --output-dir merged/ \
   --state-file .merge-state.json \
-  --cap 500
+  --cap 500 \
+  --retention-days 30
 ```
+
+The `--retention-days` flag controls how long processed contribution files are kept before automatic cleanup (default: 30 days).
 
 ## Eviction & Scoring
 
@@ -279,19 +307,29 @@ Dedicated repo with a pointer file (`.claude-mem-sync.json`) in each project rep
 | **Scalability** | Excellent | Per-project Actions | Excellent |
 | **Best for** | Teams of 3+ | Solo / small teams | Large orgs |
 
-## GitHub Action
+## CI/CD Integration
 
-The merge bot automatically merges contribution files when developers push exports.
+The merge bot automatically merges contribution files when developers push exports. Templates are provided for all major platforms.
 
-### Setup
-
-Copy the template to your shared repo:
+### GitHub Actions
 
 ```bash
 cp templates/github-action/merge-memories.yml .github/workflows/
 ```
 
-The Action runs on push to `contributions/**/*.json` and triggers `mem-sync ci-merge`.
+### GitLab CI
+
+```bash
+cp templates/gitlab-ci/merge-memories.yml .gitlab-ci.yml
+```
+
+### Bitbucket Pipelines
+
+```bash
+cp templates/bitbucket-pipelines/merge-memories.yml bitbucket-pipelines.yml
+```
+
+All templates run `mem-sync ci-merge` which handles merging, dedup, eviction, and contribution cleanup.
 
 ### `.merge-state.json`
 
@@ -371,9 +409,14 @@ Only observations matching your configured filters (types, keywords, tags) are e
 
 Run `mem-sync init` to create the config file.
 
-### "GitHub CLI (gh) is required"
+### "CLI is required for PR-based export"
 
-Install [GitHub CLI](https://cli.github.com/) or set `autoMerge: true` to use direct push instead of PR mode.
+Install the CLI for your provider:
+- **GitHub**: [gh](https://cli.github.com/)
+- **GitLab**: [glab](https://gitlab.com/gitlab-org/cli)
+- **Bitbucket**: `curl` (uses REST API)
+
+Or set `autoMerge: true` to use direct push instead of PR/MR mode.
 
 ### "No observations match export filters"
 

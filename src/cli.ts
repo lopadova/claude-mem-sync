@@ -20,6 +20,8 @@ export interface ParsedArgs {
   stateFile: string | null;
   cap: number | null;
   retentionDays: number | null;
+  /** dashboard specific flags */
+  port: number | null;
   /** Raw remaining positional args */
   rest: string[];
 }
@@ -41,6 +43,7 @@ const COMMANDS: Record<string, CommandLoader> = {
   status: () => import("./commands/status"),
   schedule: null, // has subcommands: install, remove
   "ci-merge": () => import("./commands/ci-merge"),
+  dashboard: () => import("./commands/dashboard"),
 };
 
 const SCHEDULE_SUBCOMMANDS: Record<string, () => Promise<CommandModule>> = {
@@ -67,6 +70,7 @@ Commands:
   schedule install        Install OS scheduled tasks
   schedule remove         Remove OS scheduled tasks
   ci-merge                CI-only: merge contribution files
+  dashboard               Web dashboard (http://localhost:3737)
 
 Options:
   --project <name>        Target a specific project
@@ -93,6 +97,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     stateFile: null,
     cap: null,
     retentionDays: null,
+    port: null,
     rest: [],
   };
 
@@ -152,6 +157,14 @@ function parseArgs(argv: string[]): ParsedArgs {
         if (argv[i] !== undefined) {
           const n = Number(argv[i]);
           args.retentionDays = Number.isFinite(n) && n > 0 ? n : null;
+        }
+        break;
+
+      case "--port":
+        i++;
+        if (argv[i] !== undefined) {
+          const n = Number(argv[i]);
+          args.port = Number.isFinite(n) && n > 0 ? n : null;
         }
         break;
 
