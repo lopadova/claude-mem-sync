@@ -14,17 +14,17 @@
     "typecheck": "bunx tsc --noEmit"
   },
   "dependencies": {
-    "zod": "^3.23.0"
+    "zod": "^3.25.76"
   },
   "optionalDependencies": {
-    "better-sqlite3": "^11.0.0"
+    "better-sqlite3": "^11.10.0"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.0",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/bun": "latest",
-    "@types/node": "^20.0.0",
+    "@types/node": "^20.19.37",
     "tsup": "^8.5.1",
-    "typescript": "^5.4.0"
+    "typescript": "^5.9.3"
   },
   "keywords": ["claude", "claude-mem", "memory", "team", "sync", "ai"],
   "author": "Lorenzo",
