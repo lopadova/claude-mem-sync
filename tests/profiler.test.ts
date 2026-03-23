@@ -142,11 +142,22 @@ describe("profiler", () => {
     });
 
     test("temporal pattern computes consistency", () => {
-      // All observations in the same week = perfect consistency
+      // Use a fixed Wednesday so all 3 days (Wed, Tue, Mon) fall in the same ISO week
+      const wednesday = (() => {
+        const d = new Date(NOW * 1000);
+        // Shift to Wednesday of current week (day 3 in ISO, enough room for -2 days)
+        const dayOfWeek = d.getUTCDay(); // 0=Sun..6=Sat
+        const daysToWed = (3 - dayOfWeek + 7) % 7 || 7; // next Wednesday
+        d.setUTCDate(d.getUTCDate() + daysToWed);
+        d.setUTCHours(12, 0, 0, 0);
+        return Math.floor(d.getTime() / 1000);
+      })();
+
+      // All 3 observations within Mon-Wed of the same ISO week
       const obs = [
-        makeObs({ created_at_epoch: NOW }),
-        makeObs({ created_at_epoch: NOW - DAY }),
-        makeObs({ created_at_epoch: NOW - DAY * 2 }),
+        makeObs({ created_at_epoch: wednesday }),
+        makeObs({ created_at_epoch: wednesday - DAY }),
+        makeObs({ created_at_epoch: wednesday - DAY * 2 }),
       ];
       const contribs = [makeContrib("dev", obs)];
       const profile = generateProfile("dev", "proj", contribs, [], contribs);
