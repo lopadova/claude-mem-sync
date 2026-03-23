@@ -1,8 +1,46 @@
-node_modules/
-dist/
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Turbo
+.turbo
+
+# Build Outputs
+output-file.txt
+a-different-file.txt
+dist
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Misc
+.DS_Store
+
+.env.local
+/.env.test.local
+/.idea/
+
+
+# Export collections config (local customization)
+.exportrc.json
+.claude_personal/
+.claude/settings.local.json
+
+apps/api-tester/api-tester-dist/
+/apps/mock-api/.claude/settings.local.json
+/nul
+/apps/mock-api/nul
+/apps/mock-api/_nul
+/_nul
+/.playwright-mcp/
+
 *.db
 *.db-wal
 *.db-shm
 .tmp/
-.claude/settings.local.json
-.playwright-mcp/
