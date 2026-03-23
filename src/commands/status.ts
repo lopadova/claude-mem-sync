@@ -1,5 +1,5 @@
 import { existsSync } from "fs";
-import { join, dirname } from "path";
+import { join } from "path";
 import type { ParsedArgs } from "../cli";
 import { loadConfig, getEnabledProjects, resolveProjectConfig } from "../core/config";
 import {
@@ -22,6 +22,7 @@ import {
   PACKAGE_VERSION,
   ACCESS_DB_PATH,
 } from "../core/constants";
+import { getPackageRoot } from "../core/compat";
 
 function formatDate(epochSecs: number): string {
   const d = new Date(epochSecs * 1000);
@@ -38,10 +39,7 @@ function formatSizeMB(bytes: number): string {
 }
 
 function checkHookInstalled(): boolean {
-  // Look for hooks/hooks.json relative to the package root (where this source lives)
-  // import.meta.dir gives the directory of this file; package root is ../../ from src/commands/
-  const packageRoot = dirname(dirname(dirname(import.meta.dir)));
-  const hooksJsonPath = join(packageRoot, "hooks", "hooks.json");
+  const hooksJsonPath = join(getPackageRoot(), "hooks", "hooks.json");
   return existsSync(hooksJsonPath);
 }
 

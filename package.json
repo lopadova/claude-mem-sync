@@ -4,9 +4,11 @@
   "description": "Team memory sharing for claude-mem — sync AI memories across developers",
   "type": "module",
   "bin": {
-    "mem-sync": "./src/cli.ts"
+    "mem-sync": "./dist/cli.js"
   },
   "scripts": {
+    "build": "tsup",
+    "prepare": "tsup",
     "test": "bun test",
     "test:watch": "bun test --watch",
     "typecheck": "bunx tsc --noEmit"
@@ -18,9 +20,10 @@
     "better-sqlite3": "^11.0.0"
   },
   "devDependencies": {
-    "@types/bun": "latest",
     "@types/better-sqlite3": "^7.6.0",
+    "@types/bun": "latest",
     "@types/node": "^20.0.0",
+    "tsup": "^8.5.1",
     "typescript": "^5.4.0"
   },
   "keywords": ["claude", "claude-mem", "memory", "team", "sync", "ai"],
@@ -28,7 +31,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lopadova/claude-mem-sync.git"                
+    "url": "git+https://github.com/lopadova/claude-mem-sync.git"
   },
   "engines": {
     "node": ">=18.0.0",

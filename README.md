@@ -192,10 +192,10 @@ ls -la ~/.claude-mem/claude-mem.db
 
 ```bash
 # With Bun (recommended — faster, built-in SQLite)
-bun install -g claude-mem-sync
+bun add -g github:lopadova/claude-mem-sync
 
-# OR with Node.js (uses better-sqlite3 as SQLite driver)
-npm install -g claude-mem-sync
+# OR with npm / Node.js (uses better-sqlite3 as SQLite driver)
+npm install -g github:lopadova/claude-mem-sync
 
 # Verify it works
 mem-sync --version   # Should print: claude-mem-sync v1.0.0

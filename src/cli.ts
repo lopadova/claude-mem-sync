@@ -1,5 +1,3 @@
-#!/usr/bin/env bun
-
 import { PACKAGE_VERSION } from "./core/constants";
 
 // ---------------------------------------------------------------------------

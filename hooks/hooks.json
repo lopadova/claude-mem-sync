@@ -6,7 +6,7 @@
     "hooks": [
       {
         "type": "command",
-        "command": "bun ${CLAUDE_PLUGIN_ROOT}/hooks/post-tool-use.ts",
+        "command": "bun ${CLAUDE_PLUGIN_ROOT}/dist/hooks/post-tool-use.js",
         "timeout": 5000
       }
     ]
