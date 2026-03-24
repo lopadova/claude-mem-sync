@@ -58,7 +58,7 @@ export function checkDuplicate(
      WHERE memory_session_id = ? AND title = ? AND created_at_epoch = ?
      LIMIT 1`
   ).get(memorySessionId, title, createdAtEpoch);
-  return row !== null;
+  return row != null;
 }
 
 export function insertObservation(db: SqliteDatabase, obs: Observation, project: string): void {
