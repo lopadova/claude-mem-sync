@@ -1,5 +1,5 @@
 {
   "name": "claude-mem-sync",
   "description": "Team memory sharing for claude-mem — tracks observation access for intelligent eviction",
-  "version": "1.0.0"
+  "version": "1.1.0"
 }
