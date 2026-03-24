@@ -171,7 +171,7 @@ function computeConceptMap(
   return { concepts, totalUniqueConcepts: totalUnique, devCoverage };
 }
 
-function getObservationFiles(obs: Observation): string[] {
+function getObservationFiles(obs: Observation): string | null {
   const parts: string[] = [];
   if (obs.files_read) {
     const parsed = parseJsonArray(obs.files_read);
@@ -181,7 +181,7 @@ function getObservationFiles(obs: Observation): string[] {
     const parsed = parseJsonArray(obs.files_modified);
     parts.push(...parsed);
   }
-  return [...new Set(parts)];
+  return parts.length > 0 ? JSON.stringify([...new Set(parts)]) : null;
 }
 
 function computeFileCoverage(devObs: Observation[]): FileCoverage {
@@ -189,7 +189,9 @@ function computeFileCoverage(devObs: Observation[]): FileCoverage {
   let totalFiles = 0;
 
   for (const obs of devObs) {
-    const files = getObservationFiles(obs);
+    const combinedFiles = getObservationFiles(obs);
+    if (!combinedFiles) continue;
+    const files = parseJsonArray(combinedFiles);
     for (const file of files) {
       totalFiles++;
       const dir = getDirectory(file);
