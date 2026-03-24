@@ -13,17 +13,16 @@
 - [What It Does](#what-it-does)
 - [Step-by-Step Setup Guide](#step-by-step-setup-guide)
   - [Step 1: Install Prerequisites](#step-1-install-prerequisites)
-  - [Step 2: Install claude-mem-sync](#step-2-install-claude-mem-sync)
-  - [Step 3: Install the Claude Code Plugin](#step-3-install-the-claude-code-plugin)
-  - [Step 4: Run the Setup Wizard](#step-4-run-the-setup-wizard)
-  - [Step 5: Create the Shared Team Repository](#step-5-create-the-shared-team-repository)
-  - [Step 6: Set Up GitHub Actions (CI/CD)](#step-6-set-up-github-actions-cicd)
-  - [Step 7: Your First Export](#step-7-your-first-export)
-  - [Step 8: Import Team Memories](#step-8-import-team-memories)
-  - [Step 9: Enable Developer Profiles](#step-9-enable-developer-profiles)
-  - [Step 10: Enable Knowledge Distillation (optional)](#step-10-enable-knowledge-distillation-optional)
-  - [Step 11: Launch the Dashboard](#step-11-launch-the-dashboard)
-  - [Step 12: Set Up Automatic Scheduling (optional)](#step-12-set-up-automatic-scheduling-optional)
+  - [Step 2: Install the Claude Code Plugin](#step-2-install-the-claude-code-plugin)
+  - [Step 3: Run the Setup Wizard](#step-3-run-the-setup-wizard)
+  - [Step 4: Create the Shared Team Repository](#step-4-create-the-shared-team-repository)
+  - [Step 5: Set Up GitHub Actions (CI/CD)](#step-5-set-up-github-actions-cicd)
+  - [Step 6: Your First Export](#step-6-your-first-export)
+  - [Step 7: Import Team Memories](#step-7-import-team-memories)
+  - [Step 8: Enable Developer Profiles](#step-8-enable-developer-profiles)
+  - [Step 9: Enable Knowledge Distillation (optional)](#step-9-enable-knowledge-distillation-optional)
+  - [Step 10: Launch the Dashboard](#step-10-launch-the-dashboard)
+  - [Step 11: Set Up Automatic Scheduling (optional)](#step-11-set-up-automatic-scheduling-optional)
 - [Configuration Reference](#configuration-reference)
 - [CLI Reference](#cli-reference)
 - [Web Dashboard](#web-dashboard)
@@ -175,72 +174,33 @@ ls -la ~/.claude-mem/claude-mem.db
 
 ---
 
-### Step 2: Install claude-mem-sync
+### Step 2: Install the Claude Code Plugin
 
-The package is published on [GitHub Packages](https://github.com/lopadova/claude-mem-sync/packages). GitHub Packages requires authentication even for public packages, so you need to set up a Personal Access Token (PAT) before installing.
-
-#### 2.1 — Create a GitHub Personal Access Token
-
-1. Go to [github.com/settings/tokens](https://github.com/settings/tokens?type=beta) (Fine-grained tokens)
-2. Click **"Generate new token"**
-3. Give it a name (e.g. `github-packages-read`)
-4. Under **Permissions > Packages**, select **Read** access
-5. Click **"Generate token"** and copy the token (starts with `github_pat_...`)
-
-> **Classic tokens** also work: go to [github.com/settings/tokens](https://github.com/settings/tokens) > "Generate new token (classic)" and select the `read:packages` scope.
-
-#### 2.2 — Configure the registry
-
-Add the following two lines to your `~/.npmrc` (create the file if it doesn't exist):
-
-```bash
-# Point @lopadova scope to GitHub Packages
-echo "@lopadova:registry=https://npm.pkg.github.com" >> ~/.npmrc
-
-# Authenticate with your PAT (replace YOUR_TOKEN with the token you just created)
-echo "//npm.pkg.github.com/:_authToken=YOUR_TOKEN" >> ~/.npmrc
-```
-
-> **Security note:** `~/.npmrc` should not be committed to any repository. Verify it's in your global `.gitignore` or add it: `echo ".npmrc" >> ~/.gitignore`.
-
-#### 2.3 — Install the package
-
-```bash
-# With Bun (recommended — faster, built-in SQLite)
-bun add -g @lopadova/claude-mem-sync
-
-
-# Verify it works
-mem-sync --version   # Should print: claude-mem-sync v1.0.0
-mem-sync --help      # Should show the list of commands
-```
-
-If `mem-sync` is not found, make sure your global npm/bun bin directory is in your PATH:
-
-```bash
-# For Bun — check where global packages go
-bun pm bin -g
-```
-
----
-
-### Step 3: Install the Claude Code Plugin
-
-The plugin adds a **PostToolUse hook** that tracks which memories Claude actually reads during your sessions. This enables the "hook mode" eviction strategy which is much smarter than passive mode.
+This single step installs both the **plugin** (PostToolUse hook for access tracking) and the **CLI tool** (`mem-sync` command) automatically.
 
 ```bash
 # Add the claude-mem-sync marketplace
 claude plugin marketplace add lopadova/claude-mem-sync
 
-# Install the plugin
+# Install the plugin (this also installs the mem-sync CLI globally)
 claude plugin install claude-mem-sync@claude-mem-sync
 ```
 
-Verify the plugin is active:
+The setup hook will automatically:
+1. Build the project (if needed)
+2. Install the `mem-sync` CLI globally via `npm link`
+3. Skip installation if `mem-sync` is already available
+
+> **Note:** The setup hook runs via `node` (see `hooks.json`), so you must have **Node.js ≥ 18** installed and on your `PATH`, even if you primarily use Bun. Without Node ≥ 18, the automatic CLI installation will fail.
+Verify everything is working:
 
 ```bash
+# Check the plugin is active
 claude plugin list
 # You should see claude-mem-sync@claude-mem-sync with status: ✔ enabled
+
+# Check the CLI is available
+mem-sync --help
 ```
 
 > **Local development**: If you cloned the repo locally, you can add it as a local marketplace instead:
@@ -249,11 +209,33 @@ claude plugin list
 > claude plugin install claude-mem-sync@claude-mem-sync
 > ```
 
-> **What does this hook do?** Every time Claude reads a memory (via the `mcp__plugin_claude-mem_mcp-search__*` tools), the hook records which observations were accessed. This data is used to compute more accurate eviction scores — memories that are actually used by Claude get higher scores and survive longer.
+> **Already installed the CLI manually?** No problem — the setup hook detects existing installations and skips automatically.
+
+> **What does the hook do?** Every time Claude reads a memory (via the `mcp__plugin_claude-mem_mcp-search__*` tools), the hook records which observations were accessed. This data is used to compute more accurate eviction scores — memories that are actually used by Claude get higher scores and survive longer.
+
+<details>
+<summary><strong>Manual CLI installation (alternative)</strong></summary>
+
+If the automatic setup doesn't work, you can install the CLI manually:
+
+```bash
+# Option A: Install from GitHub (Bun)
+bun add -g @lopadova/claude-mem-sync
+
+# Option B: Install from GitHub (npm — requires GitHub Packages auth)
+# 1. Create a PAT at github.com/settings/tokens with read:packages scope
+# 2. Configure registry:
+echo "@lopadova:registry=https://npm.pkg.github.com" >> ~/.npmrc
+echo "//npm.pkg.github.com/:_authToken=YOUR_TOKEN" >> ~/.npmrc
+# 3. Install:
+npm install -g @lopadova/claude-mem-sync
+```
+
+</details>
 
 ---
 
-### Step 4: Run the Setup Wizard
+### Step 3: Run the Setup Wizard
 
 The interactive wizard creates your configuration file at `~/.claude-mem-sync/config.json`.
 
@@ -311,7 +293,7 @@ Here's what a typical config looks like after the wizard:
 
 ---
 
-### Step 5: Create the Shared Team Repository
+### Step 4: Create the Shared Team Repository
 
 You need a **private GitHub repository** where all team members push their memory exports. This is where the merge bot runs.
 
@@ -331,11 +313,11 @@ mkdir -p contributions merged profiles distilled .github/workflows
 
 ---
 
-### Step 6: Set Up GitHub Actions (CI/CD)
+### Step 5: Set Up GitHub Actions (CI/CD)
 
 GitHub Actions will automatically merge contribution files when developers push exports. Copy the templates from your claude-mem-sync installation.
 
-#### 6.1 — Add the Merge Workflow
+#### 5.1 — Add the Merge Workflow
 
 This workflow triggers every time a developer pushes a contribution file. It merges all contributions, deduplicates, applies eviction caps, and generates developer profiles.
 
@@ -356,7 +338,7 @@ The merge workflow will:
 3. Generate developer profiles in `profiles/`
 4. Commit and push the merged result
 
-#### 6.2 — Add the Distillation Workflow (optional)
+#### 5.2 — Add the Distillation Workflow (optional)
 
 If you want LLM-powered knowledge distillation (extracting rules and knowledge docs from merged observations), add the distillation workflow:
 
@@ -380,7 +362,7 @@ gh secret set ANTHROPIC_API_KEY --repo my-org/dev-memories
 # Paste your API key when prompted
 ```
 
-#### 6.3 — Commit and Push
+#### 5.3 — Commit and Push
 
 ```bash
 git add -A
@@ -388,7 +370,7 @@ git commit -m "chore: initial setup for team memory sharing"
 git push
 ```
 
-#### 6.4 — Invite Your Team
+#### 5.4 — Invite Your Team
 
 Add your team members as collaborators so they can push their exports:
 
@@ -397,17 +379,16 @@ gh repo edit my-org/dev-memories --add-collaborator teammate-username
 ```
 
 Each team member needs to:
-1. Install claude-mem-sync (Step 2)
-2. Install the plugin (Step 3)
-3. Run `mem-sync init` (Step 4) — using the **same repo** (`my-org/dev-memories`) but their **own devName**
+1. Install the plugin (Step 2) — this also installs the `mem-sync` CLI automatically
+2. Run `mem-sync init` (Step 3) — using the **same repo** (`my-org/dev-memories`) but their **own devName**
 
 ---
 
-### Step 7: Your First Export
+### Step 6: Your First Export
 
 Now let's export your memories to the shared repo.
 
-#### 7.1 — Preview What Would Be Exported
+#### 6.1 — Preview What Would Be Exported
 
 Always preview first to make sure your filters are working correctly:
 
@@ -422,7 +403,7 @@ This shows you:
 
 If nothing matches, check your filter config in `~/.claude-mem-sync/config.json`. Make sure `export.types` includes the types you want (e.g., `["decision", "bugfix"]`).
 
-#### 7.2 — Export
+#### 6.2 — Export
 
 ```bash
 mem-sync export --project my-app
@@ -435,7 +416,7 @@ This will:
 4. Write a JSON file to `contributions/my-app/alice/2026-03-19T18-30-00.json`
 5. Git commit and push
 
-#### 7.3 — Verify on GitHub
+#### 6.3 — Verify on GitHub
 
 Go to `https://github.com/my-org/dev-memories` and check:
 - Your contribution file should appear in `contributions/my-app/your-name/`
@@ -444,7 +425,7 @@ Go to `https://github.com/my-org/dev-memories` and check:
 
 ---
 
-### Step 8: Import Team Memories
+### Step 7: Import Team Memories
 
 Once other team members have exported their memories and the merge bot has processed them, you can import the merged result into your local database.
 
@@ -466,11 +447,11 @@ After importing, Claude will have access to your teammates' discoveries, decisio
 
 ---
 
-### Step 9: Enable Developer Profiles
+### Step 8: Enable Developer Profiles
 
 Developer profiles analyze each team member's contributions and compute metrics like knowledge spectrum, concept coverage, and contribution quality. No LLM needed — fully deterministic, zero cost.
 
-#### 9.1 — Enable in Config
+#### 8.1 — Enable in Config
 
 Open `~/.claude-mem-sync/config.json` and set:
 
@@ -485,7 +466,7 @@ Open `~/.claude-mem-sync/config.json` and set:
 }
 ```
 
-#### 9.2 — Generate Profiles Locally
+#### 8.2 — Generate Profiles Locally
 
 ```bash
 # Preview what profiles would be generated
@@ -514,7 +495,7 @@ profiles/
     team-overview.json    # Team aggregate stats
 ```
 
-#### 9.3 — What's in a Profile
+#### 8.3 — What's in a Profile
 
 Each profile contains:
 
@@ -524,11 +505,11 @@ Each profile contains:
 - **Temporal Pattern** — how consistently you contribute (observations per week, consistency score)
 - **Survival Rate** — what percentage of your exported observations survived the merge process (quality proxy)
 
-> **Note**: Profiles are automatically generated in CI after each merge if you followed Step 6. You can also run them locally anytime.
+> **Note**: Profiles are automatically generated in CI after each merge if you followed Step 5. You can also run them locally anytime.
 
 ---
 
-### Step 10: Enable Knowledge Distillation (optional)
+### Step 9: Enable Knowledge Distillation (optional)
 
 Knowledge distillation uses Claude (via the Anthropic API) to analyze your team's merged observations and extract:
 - **Rules** — actionable CLAUDE.md-compatible rules with confidence scores
@@ -536,14 +517,14 @@ Knowledge distillation uses Claude (via the Anthropic API) to analyze your team'
 
 > **Cost**: approximately $0.33 per run for 500 observations. See the [cost estimation table](#cost-estimation).
 
-#### 10.1 — Get an Anthropic API Key
+#### 9.1 — Get an Anthropic API Key
 
 1. Go to [console.anthropic.com](https://console.anthropic.com/)
 2. Create an account (or log in)
 3. Go to **API Keys** and create a new key
 4. Copy the key (it starts with `sk-ant-`)
 
-#### 10.2 — Enable in Config
+#### 9.2 — Enable in Config
 
 Open `~/.claude-mem-sync/config.json` and set:
 
@@ -562,7 +543,7 @@ Open `~/.claude-mem-sync/config.json` and set:
 
 > **Both `enabled` and `allowExternalApi` must be `true`**. This double opt-in is intentional — it ensures you consciously decide to send observation data to the Anthropic API.
 
-#### 10.3 — Run a Dry Run First
+#### 9.3 — Run a Dry Run First
 
 ```bash
 # Set your API key (or pass it with --api-key)
@@ -577,7 +558,7 @@ This shows you:
 - Estimated token count
 - Estimated cost
 
-#### 10.4 — Run Distillation
+#### 9.4 — Run Distillation
 
 ```bash
 mem-sync distill --project my-app
@@ -594,7 +575,7 @@ distilled/
     feedback.json               # Rule accept/reject tracking
 ```
 
-#### 10.5 — Review the Output
+#### 9.5 — Review the Output
 
 Open `distilled/my-app/rules.md` to see the extracted rules. Each rule has:
 - The rule statement (imperative, actionable)
@@ -604,13 +585,13 @@ Open `distilled/my-app/rules.md` to see the extracted rules. Each rule has:
 
 **Rules are suggestions** — they are never auto-merged into your CLAUDE.md. Review them, and copy the ones you agree with into your project's CLAUDE.md manually.
 
-#### 10.6 — Automate in CI (optional)
+#### 9.6 — Automate in CI (optional)
 
-If you added the distillation workflow in Step 6.2, it runs automatically after each merge and creates a Pull Request with the distilled output. This PR needs human review before merging.
+If you added the distillation workflow in Step 5.2, it runs automatically after each merge and creates a Pull Request with the distilled output. This PR needs human review before merging.
 
 ---
 
-### Step 11: Launch the Dashboard
+### Step 10: Launch the Dashboard
 
 The web dashboard gives you a visual overview of everything: observations, profiles, team insights, distilled knowledge, and more.
 
@@ -642,7 +623,7 @@ mem-sync dashboard --port 8080
 
 ---
 
-### Step 12: Set Up Automatic Scheduling (optional)
+### Step 11: Set Up Automatic Scheduling (optional)
 
 Instead of running `mem-sync export` and `mem-sync import` manually, you can schedule them to run automatically.
 

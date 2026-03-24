@@ -44,3 +44,4 @@ apps/api-tester/api-tester-dist/
 *.db-wal
 *.db-shm
 .tmp/
+.setup-version
