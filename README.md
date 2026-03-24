@@ -94,7 +94,6 @@ Developer A                    GitHub (shared repo)              Developer B
 - **Developer knowledge profiles** — per-dev metrics: knowledge spectrum, concept map, file coverage, temporal patterns, survival rate
 - **Knowledge distillation** — LLM-powered extraction of CLAUDE.md rules and knowledge docs from team observations
 - **Team insights** — knowledge gaps detection, concept coverage heatmaps, bus-factor risk analysis
-- **Dual runtime** — works with both Bun and Node.js (v18+)
 - **Configurable cleanup** — automatic retention policy for old contribution files
 
 ---
@@ -107,7 +106,7 @@ This guide walks you through the **complete setup** of claude-mem-sync, from zer
 
 Before you start, make sure you have these tools installed on your machine.
 
-#### 1.1 — Install Bun (recommended) or Node.js
+#### 1.1 — Install Bun (recommended)
 
 You need **one** of these runtimes. Bun is recommended because it's faster and has built-in SQLite.
 
@@ -122,19 +121,6 @@ powershell -c "irm bun.sh/install.ps1 | iex"
 
 # Verify it works
 bun --version   # Should print 1.x.x or higher
-```
-
-**Option B: Install Node.js** (if you can't use Bun)
-
-Download from [nodejs.org](https://nodejs.org/) (v18 or later), or:
-
-```bash
-# macOS (Homebrew)
-brew install node
-
-# Verify it works
-node --version   # Should print v18.x.x or higher
-npm --version    # Should print 9.x.x or higher
 ```
 
 #### 1.2 — Install Git
@@ -223,8 +209,6 @@ echo "//npm.pkg.github.com/:_authToken=YOUR_TOKEN" >> ~/.npmrc
 # With Bun (recommended — faster, built-in SQLite)
 bun add -g @lopadova/claude-mem-sync
 
-# OR with npm / Node.js (uses better-sqlite3 as SQLite driver)
-npm install -g @lopadova/claude-mem-sync
 
 # Verify it works
 mem-sync --version   # Should print: claude-mem-sync v1.0.0
@@ -236,9 +220,6 @@ If `mem-sync` is not found, make sure your global npm/bun bin directory is in yo
 ```bash
 # For Bun — check where global packages go
 bun pm bin -g
-
-# For Node.js — check where global packages go
-npm bin -g
 ```
 
 ---
@@ -1051,8 +1032,8 @@ Only observations matching your configured filters (types, keywords, tags) are e
 
 ## Architecture
 
-- **Dual runtime** — works on Bun (v1.0+) and Node.js (v18+) via `src/core/compat.ts` abstraction layer
-- **SQLite** — `bun:sqlite` on Bun, `better-sqlite3` on Node.js (auto-detected at startup)
+- **Runtime** — works on Bun (v1.0+)
+- **SQLite** — `bun:sqlite` on Bun
 - **Export + hook are read-only** on claude-mem's DB
 - **Import is the only write operation** — uses transactions with rollback safety
 - **access.db** is a separate tracking database — never touches claude-mem's schema
