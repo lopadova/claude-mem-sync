@@ -1,11 +1,10 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 
 import { loadConfig, getEnabledProjects } from "./config";
 import { openMemDb, queryObservations, getObservationCount } from "./mem-db";
 import { openAccessDb } from "./access-db";
-import { getPackageRoot, type SqliteDatabase } from "./compat";
+import { type SqliteDatabase } from "./compat";
+import { DASHBOARD_HTML } from "../dashboard/html";
 import {
   getOverviewStats,
   getTypeDistribution,
@@ -443,15 +442,7 @@ export async function startDashboardServer(port: number): Promise<void> {
   const memDb = openMemDb(config.global.claudeMemDbPath);
   const accessDb = openAccessDb();
 
-  // Resolve HTML path relative to the package root
-  const htmlPath = join(getPackageRoot(), "src", "dashboard", "index.html");
-
-  let dashboardHtml: string;
-  try {
-    dashboardHtml = readFileSync(htmlPath, "utf-8");
-  } catch {
-    dashboardHtml = "<html><body><h1>Dashboard HTML not found</h1></body></html>";
-  }
+  const dashboardHtml = DASHBOARD_HTML;
 
   const server = createServer((req: IncomingMessage, res: ServerResponse) => {
     // Handle CORS preflight
