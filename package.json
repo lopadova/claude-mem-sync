@@ -1,6 +1,6 @@
 {
   "name": "@lopadova/claude-mem-sync",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Team memory sharing for claude-mem — sync AI memories across developers",
   "type": "module",
   "main": "./dist/cli.js",
@@ -39,7 +39,14 @@
     "tsup": "^8.5.1",
     "typescript": "^5.9.3"
   },
-  "keywords": ["claude", "claude-mem", "memory", "team", "sync", "ai"],
+  "keywords": [
+    "claude",
+    "claude-mem",
+    "memory",
+    "team",
+    "sync",
+    "ai"
+  ],
   "author": "Lorenzo",
   "license": "MIT",
   "repository": {
