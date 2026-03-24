@@ -1,14 +1,15 @@
 /** Row shape from claude-mem's observations table */
 export interface Observation {
   id: number;
-  sdk_session_id: number;
+  memory_session_id: string;
   type: string;
   title: string;
   narrative: string | null;
   text: string | null;
   facts: string | null;
   concepts: string | null;
-  files: string | null;
+  files_read: string | null;
+  files_modified: string | null;
   created_at_epoch: number;
   project?: string;
 }

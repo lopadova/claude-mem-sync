@@ -5,14 +5,15 @@ import type { Observation } from "../src/types/observation";
 function makeObs(overrides: Partial<Observation> = {}): Observation {
   return {
     id: 1,
-    sdk_session_id: 1,
+    memory_session_id: "session-1",
     type: "decision",
     title: "Test Observation",
     narrative: "Some narrative text",
     text: "Some body text",
     facts: null,
     concepts: null,
-    files: null,
+    files_read: null,
+    files_modified: null,
     created_at_epoch: Date.now() / 1000,
     ...overrides,
   };

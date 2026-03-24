@@ -116,7 +116,7 @@ async function importProject(
       for (const obs of exportFile.observations) {
         const isDuplicate = checkDuplicate(
           memDb,
-          obs.sdk_session_id,
+          obs.memory_session_id,
           obs.title,
           obs.created_at_epoch,
         );

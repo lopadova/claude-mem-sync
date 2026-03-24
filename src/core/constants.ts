@@ -34,4 +34,4 @@ export const DEFAULT_KEEP_TAGS = ["#keep"];
 
 export const EXPORT_JSON_VERSION = 1;
 
-export const DEDUP_KEY_FIELDS = ["sdk_session_id", "title", "created_at_epoch"] as const;
+export const DEDUP_KEY_FIELDS = ["memory_session_id", "title", "created_at_epoch"] as const;

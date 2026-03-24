@@ -79,10 +79,10 @@ export default async function run(_args: ParsedArgs): Promise<void> {
     // Also score observations that have no project / belong to non-configured projects
     // by querying all observations and filtering out those already processed
     const allObs = db.prepare(
-      `SELECT id, sdk_session_id, type, title, narrative, text, facts, concepts, files, created_at_epoch, project
+      `SELECT id, memory_session_id, type, title, narrative, text, facts, concepts, files_read, files_modified, created_at_epoch, project
        FROM observations
        WHERE created_at_epoch < ?`
-    ).all(cutoffEpoch) as Array<{ id: number; sdk_session_id: number; type: string; title: string; narrative: string | null; text: string | null; facts: string | null; concepts: string | null; files: string | null; created_at_epoch: number; project?: string }>;
+    ).all(cutoffEpoch) as Array<{ id: number; memory_session_id: string; type: string; title: string; narrative: string | null; text: string | null; facts: string | null; concepts: string | null; files_read: string | null; files_modified: string | null; created_at_epoch: number; project?: string }>;
 
     const alreadyConsidered = new Set(idsToPrune);
     // We need to also track IDs already processed but not pruned
