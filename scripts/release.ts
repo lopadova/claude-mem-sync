@@ -145,12 +145,87 @@ async function main() {
   await run(["git", "push", "--tags"]);
   console.log("  Pushed commit and tag.");
 
-  // 8. Create GitHub release
+  // 8. Create GitHub release with detailed notes
+  console.log("  Generating detailed release notes...\n");
+
+  // Get the previous tag for comparison
+  let previousTag = "";
+  try {
+    previousTag = await run(["git", "describe", "--tags", "--abbrev=0", `${tag}^`]);
+  } catch {
+    // First release — no previous tag
+  }
+
+  // Build detailed release body
+  const sections: string[] = [];
+
+  // Get merged PRs between tags using date range
+  let prList = "";
+  if (previousTag) {
+    try {
+      // Get the date of the previous tag's commit
+      const prevTagDate = await run(["git", "log", "-1", "--format=%Y-%m-%d", previousTag]);
+      prList = await run([
+        "gh", "pr", "list",
+        "--state", "merged",
+        "--search", `merged:>=${prevTagDate}`,
+        "--json", "number,title,author",
+        "--limit", "100",
+      ]);
+    } catch {
+      // Fallback: no PRs found
+    }
+  }
+
+  // Get commit log between tags
+  const commitLog = previousTag
+    ? await run(["git", "log", `${previousTag}..${tag}`, "--pretty=format:%s (%an)", "--no-merges"])
+    : await run(["git", "log", tag, "--pretty=format:%s (%an)", "--no-merges", "-20"]);
+
+  // Parse PRs if available
+  if (prList) {
+    try {
+      const prs = JSON.parse(prList);
+      if (prs.length > 0) {
+        // Get repo info for PR links
+        const repoUrl = await run(["gh", "repo", "view", "--json", "url", "-q", ".url"]);
+
+        sections.push("## What's Changed\n");
+        for (const pr of prs) {
+          const author = pr.author?.login || "unknown";
+          sections.push(`* ${pr.title} by @${author} in ${repoUrl}/pull/${pr.number}`);
+        }
+        sections.push("");
+      }
+    } catch {
+      // JSON parse failed, fall through to commit-based notes
+    }
+  }
+
+  // If no PRs were found, list commits instead
+  if (sections.length === 0 && commitLog) {
+    sections.push("## What's Changed\n");
+    for (const line of commitLog.split("\n").filter(Boolean)) {
+      sections.push(`* ${line}`);
+    }
+    sections.push("");
+  }
+
+  // Add full changelog link
+  if (previousTag) {
+    const repoUrl = await run(["gh", "repo", "view", "--json", "url", "-q", ".url"]).catch(() => "");
+    if (repoUrl) {
+      sections.push(`**Full Changelog**: ${repoUrl}/compare/${previousTag}...${tag}`);
+    }
+  }
+
+  const releaseBody = sections.join("\n");
+
   console.log("  Creating GitHub release...\n");
   const releaseUrl = await run([
     "gh", "release", "create", tag,
     "--title", `v${newVersion}`,
-    "--generate-notes",
+    "--notes", releaseBody || `Release ${tag}`,
   ]);
 
   console.log(`\x1b[1;32mRelease created:\x1b[0m ${releaseUrl}\n`);
