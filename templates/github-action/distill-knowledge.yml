@@ -26,15 +26,44 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Configure GitHub Packages registry
+        run: |
+          echo "@lopadova:registry=https://npm.pkg.github.com" >> ~/.npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> ~/.npmrc
+
       - name: Install claude-mem-sync
         run: bun install -g @lopadova/claude-mem-sync
 
       - name: Run knowledge distillation
         env:
-          # LLM Provider: for GitHub Copilot, replace with:
-          #   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          python3 << 'PYEOF'
+          import os, json, glob
+          repo = os.environ.get('GITHUB_REPOSITORY', 'owner/repo')
+          projects = {}
+          for path in sorted(glob.glob('merged/*/latest.json')):
+              proj = path.split('/')[1]
+              projects[proj] = {'enabled': True, 'remote': {'repo': repo}}
+          config = {
+              'global': {
+                  'devName': 'ci-bot',
+                  'distillation': {
+                      'enabled': True,
+                      'allowExternalApi': True,
+                      'provider': 'github-copilot',
+                      'model': 'gpt-4o',
+                      'minObservations': 1,
+                      'maxTokenBudget': 100000,
+                  },
+              },
+              'projects': projects,
+          }
+          os.makedirs(os.path.expanduser('~/.claude-mem-sync'), exist_ok=True)
+          with open(os.path.expanduser('~/.claude-mem-sync/config.json'), 'w') as f:
+              json.dump(config, f, indent=2)
+          print('Config created for projects:', list(projects.keys()))
+          PYEOF
           mem-sync distill \
             --all \
             --output-dir merged/ \
