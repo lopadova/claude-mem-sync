@@ -1037,28 +1037,52 @@ This package is published automatically to [GitHub Packages](https://github.com/
 
 ### How it works
 
-1. A maintainer pushes changes to `main`
-2. Creates a GitHub Release (from the UI or via CLI)
+1. A maintainer bumps the version
+2. The release script commits, tags, pushes, and creates a GitHub Release
 3. The `release-package` workflow triggers automatically
 4. It installs dependencies, runs tests, type-checks, builds, and publishes to GitHub Packages
 5. The package becomes available at `@lopadova/claude-mem-sync`
 
-### Step-by-step
+### Automated release (recommended)
+
+The `release` script updates the version in all files (`package.json`, `plugin.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`), commits, tags, pushes, and creates a GitHub Release — all in one step.
 
 ```bash
-# 1. Bump the version in package.json
-#    (the version MUST be different from the last published one, or publish will fail with 409 Conflict)
-bun version patch   # or: minor, major, prepatch, preminor, premajor
+# Interactive — prompts for major/minor/patch
+bun run release
 
-# 2. Commit the version bump
-git add package.json
-git commit -m "chore: bump version to $(node -p 'require(\"./package.json\").version')"
+# Or pass the bump type directly
+bun run release patch   # bug fixes, small tweaks
+bun run release minor   # new features, backward compatible
+bun run release major   # breaking changes
+```
 
-# 3. Push to main
-git push origin main
+### Manual release
 
-# 4. Create the release (triggers the publish workflow)
-gh release create "v$(node -p 'require(\"./package.json\").version')" --generate-notes
+If you prefer to do it step by step:
+
+```bash
+# 1. Note the current version
+cat package.json | grep '"version"'
+
+# 2. Update the version in ALL these files:
+#    - package.json
+#    - plugin.json
+#    - .claude-plugin/plugin.json
+#    - .claude-plugin/marketplace.json (under plugins[0].version)
+
+# 3. Commit
+git add package.json plugin.json .claude-plugin/plugin.json .claude-plugin/marketplace.json
+git commit -m "Bump version from X.X.X to Y.Y.Y"
+
+# 4. Tag
+git tag vY.Y.Y
+
+# 5. Push commit and tag
+git push && git push --tags
+
+# 6. Create the GitHub Release (triggers the publish workflow)
+gh release create vY.Y.Y --title "vY.Y.Y" --generate-notes
 ```
 
 The workflow runs at `.github/workflows/release-package.yml`.

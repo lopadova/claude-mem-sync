@@ -23,7 +23,8 @@
     "prepare": "tsup",
     "test": "bun test",
     "test:watch": "bun test --watch",
-    "typecheck": "bunx tsc --noEmit"
+    "typecheck": "bunx tsc --noEmit",
+    "release": "bun scripts/release.ts"
   },
   "dependencies": {
     "zod": "^3.25.76"
