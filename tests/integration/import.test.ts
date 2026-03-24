@@ -16,7 +16,7 @@ describe("Import pipeline integration", () => {
 
     // Pre-existing observation (will be a duplicate)
     insertTestObservation(db, {
-      sdk_session_id: 10,
+      memory_session_id: "session-10",
       type: "decision",
       title: "Existing Decision",
       created_at_epoch: 1710000000,
@@ -37,38 +37,41 @@ describe("Import pipeline integration", () => {
       observations: [
         {
           id: 100,
-          sdk_session_id: 10,
+          memory_session_id: "session-10",
           type: "decision",
           title: "Existing Decision", // duplicate by composite key
           narrative: "Already exists",
           text: null,
           facts: null,
           concepts: null,
-          files: null,
+          files_read: null,
+          files_modified: null,
           created_at_epoch: 1710000000,
         },
         {
           id: 101,
-          sdk_session_id: 20,
+          memory_session_id: "session-20",
           type: "bugfix",
           title: "New Bugfix",
           narrative: "A brand new bugfix",
           text: null,
           facts: null,
           concepts: null,
-          files: null,
+          files_read: null,
+          files_modified: null,
           created_at_epoch: 1710100000,
         },
         {
           id: 102,
-          sdk_session_id: 30,
+          memory_session_id: "session-30",
           type: "discovery",
           title: "New Discovery",
           narrative: null,
           text: "Found something",
           facts: null,
           concepts: null,
-          files: null,
+          files_read: null,
+          files_modified: null,
           created_at_epoch: 1710200000,
         },
       ],
@@ -83,7 +86,7 @@ describe("Import pipeline integration", () => {
       for (const obs of importData.observations) {
         const isDuplicate = checkDuplicate(
           db,
-          obs.sdk_session_id,
+          obs.memory_session_id,
           obs.title,
           obs.created_at_epoch,
         );
@@ -152,7 +155,7 @@ describe("Import pipeline integration", () => {
 
     let newCount = 0;
     for (const obs of emptyImport.observations) {
-      const isDuplicate = checkDuplicate(db, obs.sdk_session_id, obs.title, obs.created_at_epoch);
+      const isDuplicate = checkDuplicate(db, obs.memory_session_id, obs.title, obs.created_at_epoch);
       if (!isDuplicate) {
         insertObservation(db, obs, "test-project");
         newCount++;

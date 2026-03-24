@@ -20,7 +20,7 @@ export function openMemDbWritable(dbPath: string): SqliteDatabase {
 
 export function queryObservations(db: SqliteDatabase, project: string): Observation[] {
   const stmt = db.prepare(
-    `SELECT id, sdk_session_id, type, title, narrative, text, facts, concepts, files, created_at_epoch
+    `SELECT id, memory_session_id, type, title, narrative, text, facts, concepts, files_read, files_modified, created_at_epoch
      FROM observations
      WHERE project = ?
      ORDER BY created_at_epoch DESC`
@@ -49,25 +49,25 @@ export function getSummaryCount(db: SqliteDatabase): number {
 
 export function checkDuplicate(
   db: SqliteDatabase,
-  sdkSessionId: number,
+  memorySessionId: string,
   title: string,
   createdAtEpoch: number
 ): boolean {
   const row = db.prepare(
     `SELECT 1 FROM observations
-     WHERE sdk_session_id = ? AND title = ? AND created_at_epoch = ?
+     WHERE memory_session_id = ? AND title = ? AND created_at_epoch = ?
      LIMIT 1`
-  ).get(sdkSessionId, title, createdAtEpoch);
-  return row !== null;
+  ).get(memorySessionId, title, createdAtEpoch);
+  return row != null;
 }
 
 export function insertObservation(db: SqliteDatabase, obs: Observation, project: string): void {
   db.prepare(
-    `INSERT INTO observations (sdk_session_id, type, title, narrative, text, facts, concepts, files, created_at_epoch, project)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO observations (memory_session_id, type, title, narrative, text, facts, concepts, files_read, files_modified, created_at_epoch, project)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
-    obs.sdk_session_id, obs.type, obs.title, obs.narrative, obs.text,
-    obs.facts, obs.concepts, obs.files, obs.created_at_epoch, project
+    obs.memory_session_id, obs.type, obs.title, obs.narrative, obs.text,
+    obs.facts, obs.concepts, obs.files_read, obs.files_modified, obs.created_at_epoch, project
   );
 }
 

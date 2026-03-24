@@ -10,14 +10,15 @@ import type { Observation } from "../src/types/observation";
 function makeObs(overrides: Partial<Observation> = {}): Observation {
   return {
     id: 1,
-    sdk_session_id: 1,
+    memory_session_id: "session-1",
     type: "decision",
     title: "Test",
     narrative: "Some narrative",
     text: null,
     facts: null,
     concepts: null,
-    files: null,
+    files_read: null,
+    files_modified: null,
     created_at_epoch: Math.floor(Date.now() / 1000),
     ...overrides,
   };

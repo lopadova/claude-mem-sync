@@ -261,7 +261,7 @@ function loadContributionFiles(filePaths: string[]): LoadResult {
 
       for (const obs of exportFile.observations) {
         observations.push(obs);
-        const key = `${obs.sdk_session_id}|${obs.title}|${obs.created_at_epoch}`;
+        const key = `${obs.memory_session_id}|${obs.title}|${obs.created_at_epoch}`;
         if (!devExportMap.has(key)) {
           devExportMap.set(key, new Set());
         }
@@ -311,14 +311,14 @@ function computeDiffusion(
   const devCounts = new Map<number, number>();
 
   for (const obs of deduped) {
-    const key = `${obs.sdk_session_id}|${obs.title}|${obs.created_at_epoch}`;
+    const key = `${obs.memory_session_id}|${obs.title}|${obs.created_at_epoch}`;
     const devSet = devExportMap.get(key);
     let count = devSet ? devSet.size : 0;
 
     // If the observation existed in the previously merged file, add 1
     const wasExisting = existingObservations.some(
       (e) =>
-        e.sdk_session_id === obs.sdk_session_id &&
+        e.memory_session_id === obs.memory_session_id &&
         e.title === obs.title &&
         e.created_at_epoch === obs.created_at_epoch,
     );

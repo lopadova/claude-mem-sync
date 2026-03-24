@@ -14,14 +14,15 @@ function makeObs(overrides: Partial<Observation> = {}): Observation {
   obsCounter++;
   return {
     id: obsCounter,
-    sdk_session_id: obsCounter,
+    memory_session_id: `session-${obsCounter}`,
     type: "decision",
     title: `Test Observation ${obsCounter}`,
     narrative: "Some narrative",
     text: null,
     facts: null,
     concepts: null,
-    files: null,
+    files_read: null,
+    files_modified: null,
     created_at_epoch: Math.floor(Date.now() / 1000) + obsCounter,
     ...overrides,
   };
@@ -38,9 +39,9 @@ describe("profiler", () => {
   describe("generateProfile", () => {
     test("produces valid profile for a single dev", () => {
       const obs = [
-        makeObs({ id: 1, type: "decision", title: "Auth decision", concepts: '["auth","security"]', files: '["src/auth/login.ts"]', created_at_epoch: NOW - DAY }),
-        makeObs({ id: 2, type: "bugfix", title: "Fix crash", concepts: '["error-handling"]', files: '["src/api/handler.ts"]', created_at_epoch: NOW - DAY * 7 }),
-        makeObs({ id: 3, type: "feature", title: "Add dashboard", concepts: '["dashboard","ui"]', files: '["src/dashboard/index.html"]', created_at_epoch: NOW - DAY * 14 }),
+        makeObs({ id: 1, type: "decision", title: "Auth decision", concepts: '["auth","security"]', files_read: '["src/auth/login.ts"]', created_at_epoch: NOW - DAY }),
+        makeObs({ id: 2, type: "bugfix", title: "Fix crash", concepts: '["error-handling"]', files_read: '["src/api/handler.ts"]', created_at_epoch: NOW - DAY * 7 }),
+        makeObs({ id: 3, type: "feature", title: "Add dashboard", concepts: '["dashboard","ui"]', files_read: '["src/dashboard/index.html"]', created_at_epoch: NOW - DAY * 14 }),
       ];
 
       const contribs = [makeContrib("alice", obs)];
@@ -62,9 +63,9 @@ describe("profiler", () => {
 
     test("computes survival rate correctly when some observations not in merged", () => {
       const devObs = [
-        makeObs({ id: 1, sdk_session_id: 1, title: "Obs A", created_at_epoch: NOW }),
-        makeObs({ id: 2, sdk_session_id: 2, title: "Obs B", created_at_epoch: NOW }),
-        makeObs({ id: 3, sdk_session_id: 3, title: "Obs C", created_at_epoch: NOW }),
+        makeObs({ id: 1, memory_session_id: "session-1", title: "Obs A", created_at_epoch: NOW }),
+        makeObs({ id: 2, memory_session_id: "session-2", title: "Obs B", created_at_epoch: NOW }),
+        makeObs({ id: 3, memory_session_id: "session-3", title: "Obs C", created_at_epoch: NOW }),
       ];
 
       const merged = [devObs[0]]; // Only first survived
@@ -129,8 +130,8 @@ describe("profiler", () => {
 
     test("file coverage computes specialization", () => {
       const obs = [
-        makeObs({ files: '["src/api/a.ts","src/api/b.ts","src/api/c.ts"]' }),
-        makeObs({ files: '["src/auth/login.ts"]' }),
+        makeObs({ files_read: '["src/api/a.ts","src/api/b.ts","src/api/c.ts"]' }),
+        makeObs({ files_read: '["src/auth/login.ts"]' }),
       ];
       const contribs = [makeContrib("dev", obs)];
       const profile = generateProfile("dev", "proj", contribs, [], contribs);
@@ -212,7 +213,7 @@ describe("profiler", () => {
   describe("renderProfileMarkdown", () => {
     test("renders valid markdown", () => {
       const obs = [
-        makeObs({ type: "decision", concepts: '["auth"]', files: '["src/a.ts"]' }),
+        makeObs({ type: "decision", concepts: '["auth"]', files_read: '["src/a.ts"]' }),
       ];
       const contribs = [makeContrib("dev", obs)];
       const profile = generateProfile("dev", "proj", contribs, obs, contribs);

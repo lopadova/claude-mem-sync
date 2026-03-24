@@ -171,13 +171,27 @@ function computeConceptMap(
   return { concepts, totalUniqueConcepts: totalUnique, devCoverage };
 }
 
+function getObservationFiles(obs: Observation): string | null {
+  const parts: string[] = [];
+  if (obs.files_read) {
+    const parsed = parseJsonArray(obs.files_read);
+    parts.push(...parsed);
+  }
+  if (obs.files_modified) {
+    const parsed = parseJsonArray(obs.files_modified);
+    parts.push(...parsed);
+  }
+  return parts.length > 0 ? JSON.stringify([...new Set(parts)]) : null;
+}
+
 function computeFileCoverage(devObs: Observation[]): FileCoverage {
   const dirCounts = new Map<string, number>();
   let totalFiles = 0;
 
   for (const obs of devObs) {
-    if (!obs.files) continue;
-    const files = parseJsonArray(obs.files);
+    const combinedFiles = getObservationFiles(obs);
+    if (!combinedFiles) continue;
+    const files = parseJsonArray(combinedFiles);
     for (const file of files) {
       totalFiles++;
       const dir = getDirectory(file);
@@ -245,12 +259,12 @@ function computeSurvivalRate(
 
   // Build a set of dedup keys from merged observations
   const mergedKeys = new Set(
-    mergedObs.map((obs) => `${obs.sdk_session_id}|${obs.title}|${obs.created_at_epoch}`),
+    mergedObs.map((obs) => `${obs.memory_session_id}|${obs.title}|${obs.created_at_epoch}`),
   );
 
   let survived = 0;
   for (const obs of devObs) {
-    const key = `${obs.sdk_session_id}|${obs.title}|${obs.created_at_epoch}`;
+    const key = `${obs.memory_session_id}|${obs.title}|${obs.created_at_epoch}`;
     if (mergedKeys.has(key)) survived++;
   }
 
@@ -540,7 +554,7 @@ function deduplicateByKey(obs: Observation[]): Observation[] {
   const seen = new Set<string>();
   const result: Observation[] = [];
   for (const o of obs) {
-    const key = `${o.sdk_session_id}|${o.title}|${o.created_at_epoch}`;
+    const key = `${o.memory_session_id}|${o.title}|${o.created_at_epoch}`;
     if (!seen.has(key)) {
       seen.add(key);
       result.push(o);

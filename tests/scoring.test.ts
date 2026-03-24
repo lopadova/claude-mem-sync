@@ -11,9 +11,9 @@ import type { Observation } from "../src/types/observation";
 
 function makeObs(overrides: Partial<Observation> = {}): Observation {
   return {
-    id: 1, sdk_session_id: 1, type: "decision",
+    id: 1, memory_session_id: "session-1", type: "decision",
     title: "Test", narrative: null, text: null,
-    facts: null, concepts: null, files: null,
+    facts: null, concepts: null, files_read: null, files_modified: null,
     created_at_epoch: Date.now() / 1000,
     ...overrides,
   };

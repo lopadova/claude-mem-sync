@@ -20,14 +20,15 @@ function makeContribution(devName: string, project: string, observations: Partia
     filters: { types: [], keywords: [], tags: [] },
     observations: observations.map((obs, i) => ({
       id: obs.id ?? i + 1,
-      sdk_session_id: obs.sdk_session_id ?? i + 1,
+      memory_session_id: obs.memory_session_id ?? `session-${i + 1}`,
       type: obs.type ?? "decision",
       title: obs.title ?? `Observation ${i + 1}`,
       narrative: obs.narrative ?? null,
       text: obs.text ?? null,
       facts: obs.facts ?? null,
       concepts: obs.concepts ?? null,
-      files: obs.files ?? null,
+      files_read: obs.files_read ?? null,
+      files_modified: obs.files_modified ?? null,
       created_at_epoch: obs.created_at_epoch ?? 1710000000 + i * 1000,
     })),
     observationCount: observations.length,
@@ -56,15 +57,15 @@ describe("CI merge integration", () => {
 
     // Alice's contribution
     const alice = makeContribution("alice", "project-alpha", [
-      { sdk_session_id: 1, title: "Shared Decision", created_at_epoch: 1710000000, type: "decision" },
-      { sdk_session_id: 2, title: "Alice Only", created_at_epoch: 1710001000, type: "bugfix" },
+      { memory_session_id: "session-1", title: "Shared Decision", created_at_epoch: 1710000000, type: "decision" },
+      { memory_session_id: "session-2", title: "Alice Only", created_at_epoch: 1710001000, type: "bugfix" },
     ]);
     writeContribution(TEST_DIR, "project-alpha", "alice", "2026-03-14.json", alice);
 
     // Bob's contribution (includes a duplicate)
     const bob = makeContribution("bob", "project-alpha", [
-      { sdk_session_id: 1, title: "Shared Decision", created_at_epoch: 1710000000, type: "decision" }, // dup
-      { sdk_session_id: 3, title: "Bob Only", created_at_epoch: 1710002000, type: "discovery" },
+      { memory_session_id: "session-1", title: "Shared Decision", created_at_epoch: 1710000000, type: "decision" }, // dup
+      { memory_session_id: "session-3", title: "Bob Only", created_at_epoch: 1710002000, type: "discovery" },
     ]);
     writeContribution(TEST_DIR, "project-alpha", "bob", "2026-03-14.json", bob);
 
@@ -84,11 +85,11 @@ describe("CI merge integration", () => {
 
     // Create 5 observations, cap at 3
     const observations: Observation[] = [
-      { id: 1, sdk_session_id: 1, type: "decision", title: "Important Decision", narrative: null, text: null, facts: null, concepts: null, files: null, created_at_epoch: nowEpoch - 86400 },
-      { id: 2, sdk_session_id: 2, type: "change", title: "Old Change", narrative: null, text: null, facts: null, concepts: null, files: null, created_at_epoch: nowEpoch - 86400 * 365 },
-      { id: 3, sdk_session_id: 3, type: "bugfix", title: "Recent Bugfix", narrative: null, text: null, facts: null, concepts: null, files: null, created_at_epoch: nowEpoch - 86400 * 7 },
-      { id: 4, sdk_session_id: 4, type: "change", title: "Very Old Change", narrative: null, text: null, facts: null, concepts: null, files: null, created_at_epoch: nowEpoch - 86400 * 730 },
-      { id: 5, sdk_session_id: 5, type: "discovery", title: "#keep Protected", narrative: null, text: null, facts: null, concepts: null, files: null, created_at_epoch: nowEpoch - 86400 * 1000 },
+      { id: 1, memory_session_id: "session-1", type: "decision", title: "Important Decision", narrative: null, text: null, facts: null, concepts: null, files_read: null, files_modified: null, created_at_epoch: nowEpoch - 86400 },
+      { id: 2, memory_session_id: "session-2", type: "change", title: "Old Change", narrative: null, text: null, facts: null, concepts: null, files_read: null, files_modified: null, created_at_epoch: nowEpoch - 86400 * 365 },
+      { id: 3, memory_session_id: "session-3", type: "bugfix", title: "Recent Bugfix", narrative: null, text: null, facts: null, concepts: null, files_read: null, files_modified: null, created_at_epoch: nowEpoch - 86400 * 7 },
+      { id: 4, memory_session_id: "session-4", type: "change", title: "Very Old Change", narrative: null, text: null, facts: null, concepts: null, files_read: null, files_modified: null, created_at_epoch: nowEpoch - 86400 * 730 },
+      { id: 5, memory_session_id: "session-5", type: "discovery", title: "#keep Protected", narrative: null, text: null, facts: null, concepts: null, files_read: null, files_modified: null, created_at_epoch: nowEpoch - 86400 * 1000 },
     ];
 
     const devCounts = new Map<number, number>([
@@ -122,7 +123,7 @@ describe("CI merge integration", () => {
     const mergedPath = join(outputDir, projectName, "latest.json");
 
     const observations: Observation[] = [
-      { id: 1, sdk_session_id: 1, type: "decision", title: "Test", narrative: null, text: null, facts: null, concepts: null, files: null, created_at_epoch: 1710000000 },
+      { id: 1, memory_session_id: "session-1", type: "decision", title: "Test", narrative: null, text: null, facts: null, concepts: null, files_read: null, files_modified: null, created_at_epoch: 1710000000 },
     ];
 
     const output: ExportFile = {
@@ -187,14 +188,14 @@ describe("CI merge integration", () => {
   test("merges with existing latest.json", () => {
     // Existing merged observations
     const existing: Observation[] = [
-      { id: 1, sdk_session_id: 1, type: "decision", title: "Old Decision", narrative: null, text: null, facts: null, concepts: null, files: null, created_at_epoch: 1709000000 },
-      { id: 2, sdk_session_id: 2, type: "bugfix", title: "Old Bugfix", narrative: null, text: null, facts: null, concepts: null, files: null, created_at_epoch: 1709001000 },
+      { id: 1, memory_session_id: "session-1", type: "decision", title: "Old Decision", narrative: null, text: null, facts: null, concepts: null, files_read: null, files_modified: null, created_at_epoch: 1709000000 },
+      { id: 2, memory_session_id: "session-2", type: "bugfix", title: "Old Bugfix", narrative: null, text: null, facts: null, concepts: null, files_read: null, files_modified: null, created_at_epoch: 1709001000 },
     ];
 
     // New contribution
     const newObs: Observation[] = [
-      { id: 1, sdk_session_id: 1, type: "decision", title: "Old Decision", narrative: null, text: null, facts: null, concepts: null, files: null, created_at_epoch: 1709000000 }, // dup
-      { id: 3, sdk_session_id: 3, type: "discovery", title: "New Discovery", narrative: null, text: null, facts: null, concepts: null, files: null, created_at_epoch: 1710000000 },
+      { id: 1, memory_session_id: "session-1", type: "decision", title: "Old Decision", narrative: null, text: null, facts: null, concepts: null, files_read: null, files_modified: null, created_at_epoch: 1709000000 }, // dup
+      { id: 3, memory_session_id: "session-3", type: "discovery", title: "New Discovery", narrative: null, text: null, facts: null, concepts: null, files_read: null, files_modified: null, created_at_epoch: 1710000000 },
     ];
 
     const combined = [...existing, ...newObs];

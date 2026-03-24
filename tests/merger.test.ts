@@ -11,14 +11,15 @@ const NOW = 1700000000; // fixed epoch for deterministic tests
 function makeObs(overrides: Partial<Observation> = {}): Observation {
   return {
     id: 1,
-    sdk_session_id: 1,
+    memory_session_id: "session-1",
     type: "decision",
     title: "Test",
     narrative: null,
     text: null,
     facts: null,
     concepts: null,
-    files: null,
+    files_read: null,
+    files_modified: null,
     created_at_epoch: NOW,
     ...overrides,
   };
@@ -27,10 +28,10 @@ function makeObs(overrides: Partial<Observation> = {}): Observation {
 const DEFAULT_WEIGHTS = { typeWeight: 0.3, recencyWeight: 0.2, thirdWeight: 0.5 };
 
 describe("deduplicateObservations", () => {
-  test("removes duplicates by composite key (sdk_session_id + title + created_at_epoch)", () => {
-    const obs1 = makeObs({ id: 1, sdk_session_id: 10, title: "A", created_at_epoch: 100 });
-    const obs2 = makeObs({ id: 2, sdk_session_id: 10, title: "A", created_at_epoch: 100 });
-    const obs3 = makeObs({ id: 3, sdk_session_id: 20, title: "B", created_at_epoch: 200 });
+  test("removes duplicates by composite key (memory_session_id + title + created_at_epoch)", () => {
+    const obs1 = makeObs({ id: 1, memory_session_id: "session-10", title: "A", created_at_epoch: 100 });
+    const obs2 = makeObs({ id: 2, memory_session_id: "session-10", title: "A", created_at_epoch: 100 });
+    const obs3 = makeObs({ id: 3, memory_session_id: "session-20", title: "B", created_at_epoch: 200 });
 
     const result = deduplicateObservations([obs1, obs2, obs3]);
     expect(result).toHaveLength(2);
@@ -39,11 +40,11 @@ describe("deduplicateObservations", () => {
 
   test("keeps first occurrence when duplicates exist", () => {
     const obs1 = makeObs({
-      id: 1, sdk_session_id: 10, title: "A", created_at_epoch: 100,
+      id: 1, memory_session_id: "session-10", title: "A", created_at_epoch: 100,
       narrative: "First version",
     });
     const obs2 = makeObs({
-      id: 2, sdk_session_id: 10, title: "A", created_at_epoch: 100,
+      id: 2, memory_session_id: "session-10", title: "A", created_at_epoch: 100,
       narrative: "Second version",
     });
 
@@ -59,18 +60,18 @@ describe("deduplicateObservations", () => {
   });
 
   test("handles no duplicates (returns all)", () => {
-    const obs1 = makeObs({ id: 1, sdk_session_id: 1, title: "A", created_at_epoch: 100 });
-    const obs2 = makeObs({ id: 2, sdk_session_id: 2, title: "B", created_at_epoch: 200 });
-    const obs3 = makeObs({ id: 3, sdk_session_id: 3, title: "C", created_at_epoch: 300 });
+    const obs1 = makeObs({ id: 1, memory_session_id: "session-1", title: "A", created_at_epoch: 100 });
+    const obs2 = makeObs({ id: 2, memory_session_id: "session-2", title: "B", created_at_epoch: 200 });
+    const obs3 = makeObs({ id: 3, memory_session_id: "session-3", title: "C", created_at_epoch: 300 });
 
     const result = deduplicateObservations([obs1, obs2, obs3]);
     expect(result).toHaveLength(3);
     expect(result.map((o) => o.id)).toEqual([1, 2, 3]);
   });
 
-  test("considers different sdk_session_id as distinct even if title and epoch match", () => {
-    const obs1 = makeObs({ id: 1, sdk_session_id: 10, title: "A", created_at_epoch: 100 });
-    const obs2 = makeObs({ id: 2, sdk_session_id: 20, title: "A", created_at_epoch: 100 });
+  test("considers different memory_session_id as distinct even if title and epoch match", () => {
+    const obs1 = makeObs({ id: 1, memory_session_id: "session-10", title: "A", created_at_epoch: 100 });
+    const obs2 = makeObs({ id: 2, memory_session_id: "session-20", title: "A", created_at_epoch: 100 });
 
     const result = deduplicateObservations([obs1, obs2]);
     expect(result).toHaveLength(2);

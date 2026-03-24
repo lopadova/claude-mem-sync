@@ -31,7 +31,7 @@ export interface EvictionCapOptions {
 }
 
 /**
- * Deduplicate observations by composite key: sdk_session_id + title + created_at_epoch.
+ * Deduplicate observations by composite key: memory_session_id + title + created_at_epoch.
  * When duplicates are found, keep the first occurrence.
  */
 export function deduplicateObservations(observations: Observation[]): Observation[] {
@@ -39,7 +39,7 @@ export function deduplicateObservations(observations: Observation[]): Observatio
   const result: Observation[] = [];
 
   for (const obs of observations) {
-    const key = `${obs.sdk_session_id}|${obs.title}|${obs.created_at_epoch}`;
+    const key = `${obs.memory_session_id}|${obs.title}|${obs.created_at_epoch}`;
     if (!seen.has(key)) {
       seen.add(key);
       result.push(obs);
