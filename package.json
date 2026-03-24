@@ -9,6 +9,7 @@
   },
   "files": [
     "dist/",
+    "scripts/",
     "hooks/hooks.json",
     "templates/",
     "README.md",
