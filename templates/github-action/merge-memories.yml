@@ -27,6 +27,7 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/lopadova/claude-mem-sync.git /tmp/claude-mem-sync
           cd /tmp/claude-mem-sync && bun install && bun run build
+          chmod +x /tmp/claude-mem-sync/dist/cli.js
           sudo ln -sf /tmp/claude-mem-sync/dist/cli.js /usr/local/bin/mem-sync
 
       - name: Merge new contributions
