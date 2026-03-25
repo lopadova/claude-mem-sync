@@ -55,10 +55,13 @@ async function resolveRepoDir(config: Config, project: string): Promise<string> 
     delete repoCache[project];
   }
 
-  // Clone the repo
-  const projConfig = config.projects[project];
-  if (!projConfig?.remote) {
-    throw new Error(`No remote configured for project "${project}"`);
+  // Clone the repo (if configured)
+  const projConfig = config.projects?.[project];
+  if (!project || !projConfig?.remote) {
+    // If the project is empty or not configured with a remote, fall back to CWD.
+    // Callers will typically interpret the absence of data as empty results / 404,
+    // which matches the behavior of the previous implementation.
+    return ".";
   }
 
   logger.info("Cloning repo for dashboard profiles", { project, repo: projConfig.remote.repo });
