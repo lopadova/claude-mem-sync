@@ -15,6 +15,11 @@ import {
   getObservationScores,
 } from "./analytics";
 import {
+  calculateTypeWeight,
+  calculateRecencyWeight,
+  calculateScore,
+} from "./scoring";
+import {
   handleProfileDev,
   handleProfileDevs,
   handleTeamOverview,
@@ -143,7 +148,7 @@ function handleOverview(
 
 function handleObservations(
   memDb: SqliteDatabase,
-  _accessDb: SqliteDatabase,
+  accessDb: SqliteDatabase,
   _config: ReturnType<typeof loadConfig>,
   query: Record<string, string>,
   res: ServerResponse,
@@ -178,10 +183,43 @@ function handleObservations(
 
   const dataSql = "SELECT id, type, title, narrative, text, facts, concepts, created_at_epoch, project FROM observations " + whereClause + " ORDER BY created_at_epoch DESC LIMIT ? OFFSET ?";
   const dataParams = [...params, limit, offset];
-  const rows = memDb.prepare(dataSql).all(...dataParams);
+  const rows = memDb.prepare(dataSql).all(...dataParams) as Array<{
+    id: number; type: string; title: string; narrative: string;
+    text: string; facts: string; concepts: string;
+    created_at_epoch: number; project: string;
+  }>;
+
+  // Compute scores for the fetched observations
+  const nowEpoch = Math.floor(Date.now() / 1000);
+  const ids = rows.map((r) => r.id);
+  const accessMap = new Map<number, number>();
+  let maxAccess = 0;
+
+  if (ids.length > 0) {
+    const placeholders = ids.map(() => "?").join(",");
+    const accessRows = accessDb
+      .prepare(`SELECT observation_id, COUNT(*) as cnt FROM access_log WHERE observation_id IN (${placeholders}) GROUP BY observation_id`)
+      .all(...ids) as Array<{ observation_id: number; cnt: number }>;
+    for (const r of accessRows) {
+      accessMap.set(r.observation_id, r.cnt);
+      if (r.cnt > maxAccess) maxAccess = r.cnt;
+    }
+  }
+
+  const scored = rows.map((row) => {
+    const accessCount = accessMap.get(row.id) ?? 0;
+    const score = calculateScore({
+      typeWeight: calculateTypeWeight(row.type),
+      recencyWeight: calculateRecencyWeight(row.created_at_epoch, nowEpoch),
+      accessWeight: maxAccess > 0 ? accessCount / maxAccess : 0,
+      weights: { typeWeight: 0.3, recencyWeight: 0.2, thirdWeight: 0.5 },
+      mode: "hook",
+    });
+    return { ...row, score: Math.round(score * 1000) / 1000 };
+  });
 
   sendJson(res, {
-    observations: rows,
+    observations: scored,
     total: countRow.total,
     page,
     limit,
@@ -249,13 +287,13 @@ function handleTypeDistribution(
 }
 
 function handleTimeline(
-  _memDb: SqliteDatabase,
+  memDb: SqliteDatabase,
   accessDb: SqliteDatabase,
   _config: ReturnType<typeof loadConfig>,
   _query: Record<string, string>,
   res: ServerResponse,
 ): void {
-  const data = getSyncTimeline(accessDb);
+  const data = getSyncTimeline(accessDb, memDb);
   sendJson(res, { timeline: data });
 }
 
@@ -461,12 +499,10 @@ export async function startDashboardServer(port: number): Promise<void> {
       const url = req.url ?? "/";
       const pathname = getPathname(url);
       if (pathname === "/api/distilled/feedback") {
-        try {
-          handleDistilledFeedback(memDb, accessDb, config, req, res);
-        } catch (err) {
+        handleDistilledFeedback(memDb, accessDb, config, req, res).catch((err: unknown) => {
           const message = err instanceof Error ? err.message : String(err);
-          sendError(res, message, 500);
-        }
+          if (!res.headersSent) sendError(res, message, 500);
+        });
         return;
       }
       sendError(res, "Method not allowed", 405);

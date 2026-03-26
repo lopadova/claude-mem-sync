@@ -9,7 +9,7 @@ import {
   getDefaultEntries,
   generateCrontabEntries,
   generateLaunchdPlist,
-  generateSchtasksCommand,
+  generateSchtasksArgs,
 } from "../core/scheduler";
 import type { ParsedArgs } from "../cli";
 
@@ -85,11 +85,10 @@ async function installLaunchd(entries: ReturnType<typeof getDefaultEntries>): Pr
 
 async function installSchtasks(entries: ReturnType<typeof getDefaultEntries>): Promise<void> {
   for (const entry of entries) {
-    const cmd = generateSchtasksCommand(entry);
-    logger.info(`Running: ${cmd}`);
+    const args = generateSchtasksArgs(entry);
+    logger.info(`Running: schtasks ${args.join(" ")}`);
 
-    // schtasks requires cmd on Windows
-    const result = await spawnCommand(["cmd", "/c", cmd]);
+    const result = await spawnCommand(["schtasks", ...args]);
 
     if (result.exitCode !== 0) {
       logger.error(`Failed to create task "${entry.name}": ${result.stderr}`);

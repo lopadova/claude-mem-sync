@@ -132,6 +132,7 @@ export function getAccessHeatmap(
 
 export function getSyncTimeline(
   accessDb: SqliteDatabase,
+  memDb?: SqliteDatabase,
 ): Array<{
   month: string;
   exports: number;
@@ -195,10 +196,32 @@ export function getSyncTimeline(
     }
   }
 
-  // Sort by month
-  return Array.from(monthMap.values()).sort((a, b) =>
+  const result = Array.from(monthMap.values()).sort((a, b) =>
     a.month.localeCompare(b.month),
   );
+
+  // Fallback: if no export/import logs, derive timeline from observation creation dates
+  if (result.length === 0 && memDb) {
+    const obsRows = memDb
+      .prepare(
+        `SELECT strftime('%Y-%m', created_at_epoch, 'unixepoch') as month,
+                COUNT(*) as count
+         FROM observations GROUP BY month ORDER BY month`,
+      )
+      .all() as Array<{ month: string; count: number }>;
+
+    for (const row of obsRows) {
+      result.push({
+        month: row.month,
+        exports: 0,
+        imports: 0,
+        exportedObs: row.count,
+        importedObs: 0,
+      });
+    }
+  }
+
+  return result;
 }
 
 // ── Developer contributions ──────────────────────────────────────────

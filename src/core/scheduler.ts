@@ -7,12 +7,12 @@ import { LOGS_DIR, CONFIG_DIR } from "./constants";
 // ---------------------------------------------------------------------------
 
 export interface ParsedSchedule {
-  dayOfWeek: number; // 0=Sunday, 1=Monday, ..., 5=Friday, 6=Saturday
+  dayOfWeek: number | null; // 0=Sunday, 1=Monday, ..., 6=Saturday, null=everyday
   hour: number;
   minute: number;
 }
 
-const DAY_MAP: Record<string, number> = {
+const DAY_MAP: Record<string, number | null> = {
   sunday: 0,
   monday: 1,
   tuesday: 2,
@@ -20,10 +20,11 @@ const DAY_MAP: Record<string, number> = {
   thursday: 4,
   friday: 5,
   saturday: 6,
+  everyday: null,
 };
 
 /**
- * Parse a schedule string like "friday:16:00" into structured form.
+ * Parse a schedule string like "friday:16:00" or "everyday:09:00" into structured form.
  */
 export function parseSchedule(schedule: string): ParsedSchedule {
   const parts = schedule.toLowerCase().split(":");
@@ -59,8 +60,12 @@ export function parseSchedule(schedule: string): ParsedSchedule {
 
 /**
  * Compute the import schedule — the morning after the export day, at 09:00.
+ * If the export is daily, import is also daily at 09:00.
  */
 export function getImportSchedule(exportSchedule: ParsedSchedule): ParsedSchedule {
+  if (exportSchedule.dayOfWeek === null) {
+    return { dayOfWeek: null, hour: 9, minute: 0 };
+  }
   return {
     dayOfWeek: (exportSchedule.dayOfWeek + 1) % 7,
     hour: 9,
@@ -167,6 +172,11 @@ export function generateCrontabEntry(entry: ScheduleEntry): string {
     return `${sched.minute} ${sched.hour} * * 0 ${cmdLine}`;
   }
 
+  if (sched.dayOfWeek === null) {
+    // Daily
+    return `${sched.minute} ${sched.hour} * * * ${cmdLine}`;
+  }
+
   return `${sched.minute} ${sched.hour} * * ${toCronDayOfWeek(sched.dayOfWeek)} ${cmdLine}`;
 }
 
@@ -214,6 +224,13 @@ export function generateLaunchdPlist(entry: ScheduleEntry): string {
     <key>Minute</key><integer>${sched.minute}</integer>
   </dict>`;
     }
+  } else if (sched.dayOfWeek === null) {
+    // Daily: omit Weekday key, just Hour+Minute
+    calendarInterval = `  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>${sched.hour}</integer>
+    <key>Minute</key><integer>${sched.minute}</integer>
+  </dict>`;
   } else {
     calendarInterval = `  <key>StartCalendarInterval</key>
   <dict>
@@ -276,10 +293,47 @@ export function generateSchtasksCommand(entry: ScheduleEntry): string {
     return `schtasks /create /tn "${safeName}" /tr "${tr}" /sc weekly /d SUN /st ${time} /rl LIMITED /f`;
   }
 
+  if (sched.dayOfWeek === null) {
+    return `schtasks /create /tn "${safeName}" /tr "${tr}" /sc daily /st ${time} /rl LIMITED /f`;
+  }
+
   const day = SCHTASKS_DAY_MAP[sched.dayOfWeek];
   return `schtasks /create /tn "${safeName}" /tr "${tr}" /sc weekly /d ${day} /st ${time} /rl LIMITED /f`;
 }
 
+/**
+ * Generate schtasks arguments as an array for direct use with spawnCommand.
+ * Includes log redirection in the /tr value.
+ */
+export function generateSchtasksArgs(entry: ScheduleEntry): string[] {
+  const sched = entry.schedule;
+  const tr = `cmd /c "${entry.command} ${entry.args.join(" ")} >> "${entry.logFile}" 2>&1"`;
+  const time = `${String(("hour" in sched ? sched.hour : 0)).padStart(2, "0")}:${String(("minute" in sched ? sched.minute : 0)).padStart(2, "0")}`;
+
+  const base = ["/create", "/tn", entry.name, "/tr", tr, "/st", time, "/rl", "LIMITED", "/f"];
+
+  if ("frequency" in sched) {
+    if (sched.frequency === "monthly") {
+      return [...base, "/sc", "monthly", "/d", String(sched.dayOfMonth)];
+    }
+    return [...base, "/sc", "weekly", "/d", "SUN"];
+  }
+
+  if (sched.dayOfWeek === null) {
+    return [...base, "/sc", "daily"];
+  }
+
+  const day = SCHTASKS_DAY_MAP[sched.dayOfWeek];
+  return [...base, "/sc", "weekly", "/d", day];
+}
+
 export function generateSchtasksRemoveCommand(taskName: string): string {
   return `schtasks /delete /tn "${taskName}" /f`;
+}
+
+/**
+ * Generate schtasks remove arguments as an array for direct use with spawnCommand.
+ */
+export function generateSchtasksRemoveArgs(taskName: string): string[] {
+  return ["/delete", "/tn", taskName, "/f"];
 }

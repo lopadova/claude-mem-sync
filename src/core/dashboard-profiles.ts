@@ -39,12 +39,13 @@ const repoCache: Record<string, string> = {};
  * Checks CWD first (for when dashboard is run from repo dir or CI).
  * Falls back to cloning the remote repo.
  */
-async function resolveRepoDir(config: Config, project: string): Promise<string> {
+export async function resolveRepoDir(config: Config, project: string): Promise<string> {
   // Check if contributions exist in CWD (user is in the repo dir)
   const cwdContribs = join("contributions", project);
   const cwdMerged = join("merged", project);
   const cwdProfiles = join("profiles", project);
-  if (existsSync(cwdContribs) || existsSync(cwdMerged) || existsSync(cwdProfiles)) {
+  const cwdDistilled = join("distilled", project);
+  if (existsSync(cwdContribs) || existsSync(cwdMerged) || existsSync(cwdProfiles) || existsSync(cwdDistilled)) {
     return ".";
   }
 

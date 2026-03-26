@@ -3,6 +3,7 @@ import { join } from "path";
 import { homedir } from "os";
 import { spawnCommand, spawnWithStdin } from "../core/compat";
 import { logger } from "../core/logger";
+import { generateSchtasksRemoveArgs } from "../core/scheduler";
 import type { ParsedArgs } from "../cli";
 
 const TASK_NAMES = [
@@ -64,7 +65,8 @@ async function removeLaunchd(): Promise<void> {
 
 async function removeSchtasks(): Promise<void> {
   for (const name of TASK_NAMES) {
-    const result = await spawnCommand(["cmd", "/c", `schtasks /delete /tn "${name}" /f`]);
+    const args = generateSchtasksRemoveArgs(name);
+    const result = await spawnCommand(["schtasks", ...args]);
 
     if (result.exitCode === 0) {
       console.log(`Deleted task: ${name}`);
