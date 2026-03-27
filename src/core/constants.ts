@@ -1,7 +1,23 @@
 import { homedir } from "os";
-import { join } from "path";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+import { readFileSync } from "fs";
 
-export const PACKAGE_VERSION = "1.0.0";
+declare const __PACKAGE_VERSION__: string;
+
+function resolveVersion(): string {
+  if (typeof __PACKAGE_VERSION__ !== "undefined") return __PACKAGE_VERSION__;
+  // Fallback for dev mode (bun src/cli.ts) — read from package.json
+  try {
+    const dir = dirname(fileURLToPath(import.meta.url));
+    const pkg = JSON.parse(readFileSync(join(dir, "..", "..", "package.json"), "utf-8"));
+    return pkg.version;
+  } catch {
+    return "0.0.0-dev";
+  }
+}
+
+export const PACKAGE_VERSION: string = resolveVersion();
 
 export const CONFIG_DIR = join(homedir(), ".claude-mem-sync");
 export const CONFIG_PATH = join(CONFIG_DIR, "config.json");

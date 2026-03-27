@@ -1,4 +1,5 @@
 import { defineConfig } from "tsup";
+import pkg from "./package.json";
 
 export default defineConfig({
   entry: {
@@ -13,4 +14,7 @@ export default defineConfig({
   sourcemap: false,
   banner: { js: "#!/usr/bin/env node" },
   external: ["better-sqlite3", "bun:sqlite"],
+  define: {
+    __PACKAGE_VERSION__: JSON.stringify(pkg.version),
+  },
 });
