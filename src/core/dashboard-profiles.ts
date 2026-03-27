@@ -35,18 +35,48 @@ function sendError(res: ServerResponse, message: string, status = 500): void {
 const repoCache: Record<string, string> = {};
 
 /**
+ * Check if a directory exists and contains at least one real file (not just .gitkeep).
+ */
+function dirHasContent(dirPath: string): boolean {
+  if (!existsSync(dirPath)) return false;
+  try {
+    const entries = readdirSync(dirPath, { recursive: true });
+    return entries.some((e) => {
+      const name = typeof e === "string" ? e : e.toString();
+      return !name.endsWith(".gitkeep") && statSync(join(dirPath, name)).isFile();
+    });
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if CWD looks like a memory-sharing repo (has the expected directory structure at root).
+ * This prevents false matches when the dashboard is run from a project that happens to have
+ * a profiles/ or distilled/ directory for unrelated reasons.
+ */
+function cwdIsMemoryRepo(): boolean {
+  // A memory-sharing repo has at least contributions/ and merged/ at root level
+  return existsSync("contributions") && existsSync("merged");
+}
+
+/**
  * Resolve the base directory for a project's contributions/merged/profiles.
  * Checks CWD first (for when dashboard is run from repo dir or CI).
  * Falls back to cloning the remote repo.
  */
 export async function resolveRepoDir(config: Config, project: string): Promise<string> {
-  // Check if contributions exist in CWD (user is in the repo dir)
-  const cwdContribs = join("contributions", project);
-  const cwdMerged = join("merged", project);
-  const cwdProfiles = join("profiles", project);
-  const cwdDistilled = join("distilled", project);
-  if (existsSync(cwdContribs) || existsSync(cwdMerged) || existsSync(cwdProfiles) || existsSync(cwdDistilled)) {
-    return ".";
+  // Check if CWD is the memory-sharing repo itself (has contributions/ + merged/ structure)
+  if (cwdIsMemoryRepo()) {
+    const cwdDirs = [
+      join("contributions", project),
+      join("merged", project),
+      join("profiles", project),
+      join("distilled", project),
+    ];
+    if (cwdDirs.some((d) => dirHasContent(d))) {
+      return ".";
+    }
   }
 
   // Check in-memory cache (avoids repeated git pull within the same process run)
