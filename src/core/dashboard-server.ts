@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 
 import { loadConfig, getEnabledProjects } from "./config";
 import { openMemDb, queryObservations, getObservationCount } from "./mem-db";
+import type { Observation } from "../types/observation";
 import { openAccessDb } from "./access-db";
 import { type SqliteDatabase } from "./compat";
 import { DASHBOARD_HTML } from "../dashboard/html";
@@ -182,13 +183,9 @@ function handleObservations(
   const countSql = "SELECT COUNT(*) as total FROM observations " + whereClause;
   const countRow = memDb.prepare(countSql).get(...params) as { total: number };
 
-  const dataSql = "SELECT id, type, title, narrative, text, facts, concepts, created_at_epoch, project FROM observations " + whereClause + " ORDER BY created_at_epoch DESC LIMIT ? OFFSET ?";
+  const dataSql = "SELECT id, memory_session_id, type, title, narrative, text, facts, concepts, files_read, files_modified, created_at_epoch, project FROM observations " + whereClause + " ORDER BY created_at_epoch DESC LIMIT ? OFFSET ?";
   const dataParams = [...params, limit, offset];
-  const rows = memDb.prepare(dataSql).all(...dataParams) as Array<{
-    id: number; type: string; title: string; narrative: string;
-    text: string; facts: string; concepts: string;
-    created_at_epoch: number; project: string;
-  }>;
+  const rows = memDb.prepare(dataSql).all(...dataParams) as Array<Observation>;
 
   // Compute scores for the fetched observations
   const nowEpoch = Math.floor(Date.now() / 1000);
