@@ -1,6 +1,6 @@
 {
   "name": "@lopadova/claude-mem-sync",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "description": "Team memory sharing for claude-mem — sync AI memories across developers",
   "type": "module",
   "main": "./dist/cli.js",

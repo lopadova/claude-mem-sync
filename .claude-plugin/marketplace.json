@@ -14,7 +14,7 @@
         "repo": "lopadova/claude-mem-sync"
       },
       "description": "Team memory sharing for claude-mem — tracks observation access for intelligent eviction scoring",
-      "version": "1.1.6"
+      "version": "1.1.7"
     }
   ]
 }
