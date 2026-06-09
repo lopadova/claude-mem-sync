@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
 import { loadConfig, getEnabledProjects } from "./config";
-import { openMemDb, queryObservations, getObservationCount } from "./mem-db";
+import { openMemDb, queryObservations, getObservationCount, EPOCH_TO_SECONDS_SQL } from "./mem-db";
 import type { Observation } from "../types/observation";
 import { openAccessDb } from "./access-db";
 import { type SqliteDatabase } from "./compat";
@@ -183,7 +183,7 @@ function handleObservations(
   const countSql = "SELECT COUNT(*) as total FROM observations " + whereClause;
   const countRow = memDb.prepare(countSql).get(...params) as { total: number };
 
-  const dataSql = "SELECT id, memory_session_id, type, title, narrative, text, facts, concepts, files_read, files_modified, created_at_epoch, project FROM observations " + whereClause + " ORDER BY created_at_epoch DESC LIMIT ? OFFSET ?";
+  const dataSql = "SELECT id, memory_session_id, type, title, narrative, text, facts, concepts, files_read, files_modified, created_at_epoch, project FROM observations " + whereClause + ` ORDER BY ${EPOCH_TO_SECONDS_SQL} DESC, created_at_epoch DESC LIMIT ? OFFSET ?`;
   const dataParams = [...params, limit, offset];
   const rows = memDb.prepare(dataSql).all(...dataParams) as Array<Observation>;
 
@@ -451,7 +451,7 @@ function handleSearch(
     const countRowFb = memDb.prepare(countSqlFb).get(...fbParams) as { total: number } | null;
     const total = countRowFb?.total ?? 0;
 
-    const dataSqlFb = `SELECT id, type, title, subtitle, narrative, project, created_at_epoch FROM observations ${whereClauseFb} ORDER BY created_at_epoch DESC LIMIT ? OFFSET ?`;
+    const dataSqlFb = `SELECT id, type, title, subtitle, narrative, project, created_at_epoch FROM observations ${whereClauseFb} ORDER BY ${EPOCH_TO_SECONDS_SQL} DESC, created_at_epoch DESC LIMIT ? OFFSET ?`;
     const rows = memDb.prepare(dataSqlFb).all(...fbParams, limit, offset);
 
     sendJson(res, {

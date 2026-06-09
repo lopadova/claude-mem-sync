@@ -1,5 +1,6 @@
 import type { SqliteDatabase } from "./compat";
 import type { Observation } from "../types/observation";
+import { EPOCH_TO_SECONDS_SQL } from "./mem-db";
 import {
   calculateTypeWeight,
   calculateRecencyWeight,
@@ -294,7 +295,7 @@ export function getObservationScores(
     .prepare(
       `SELECT id, type, title, narrative, text, facts, concepts, created_at_epoch
        FROM observations WHERE project = ?
-       ORDER BY created_at_epoch DESC`,
+       ORDER BY ${EPOCH_TO_SECONDS_SQL} DESC, created_at_epoch DESC`,
     )
     .all(project) as Observation[];
 

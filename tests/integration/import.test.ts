@@ -8,6 +8,7 @@ import {
   insertObservation,
   ensureSession,
   epochToIsoString,
+  queryObservations,
   queryObservationsOlderThan,
   rebuildFts,
   runIntegrityCheck,
@@ -384,6 +385,20 @@ describe("Import schema compatibility (current claude-mem)", () => {
     insertTestObservation(db, { memory_session_id: "s-eq-ms", title: "at cutoff ms", created_at_epoch: cutoff * 1000 });
 
     expect(queryObservationsOlderThan(db, cutoff).map((o) => o.title)).toEqual(["older"]);
+    db.close();
+  });
+
+  test("queryObservations orders by real time across mixed seconds/ms units", () => {
+    const db = createTestMemDb();
+    // Newer observation stored in SECONDS; older one stored in MILLISECONDS.
+    insertTestObservation(db, { memory_session_id: "s-new", title: "newer secs", created_at_epoch: 1767225600, project: "p" }); // 2026
+    insertTestObservation(db, { memory_session_id: "s-old", title: "older ms", created_at_epoch: 1577836800000, project: "p" }); // 2020
+
+    // Raw `ORDER BY created_at_epoch DESC` would put the ms row first (1.58e12 > 1.77e9),
+    // i.e. the older observation ahead of the newer one. Normalized ordering fixes it.
+    const rows = queryObservations(db, "p");
+    expect(rows.map((o) => o.title)).toEqual(["newer secs", "older ms"]);
+
     db.close();
   });
 

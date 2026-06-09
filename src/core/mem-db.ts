@@ -10,7 +10,8 @@ export { epochToIsoString } from "./epoch";
 
 // SQL expression that normalizes a (seconds-or-ms) `created_at_epoch` to seconds.
 // 1e12 ms = 2001-09-09; the same value as seconds would be year 33658.
-const EPOCH_TO_SECONDS_SQL =
+// Exported so other raw-SQL builders (analytics, dashboard) can ORDER BY real time.
+export const EPOCH_TO_SECONDS_SQL =
   "(CASE WHEN created_at_epoch >= 1000000000000 THEN created_at_epoch / 1000 ELSE created_at_epoch END)";
 
 export function openMemDb(dbPath: string): SqliteDatabase {
@@ -31,7 +32,7 @@ export function queryObservations(db: SqliteDatabase, project: string): Observat
     `SELECT id, memory_session_id, type, title, narrative, text, facts, concepts, files_read, files_modified, created_at_epoch
      FROM observations
      WHERE project = ?
-     ORDER BY created_at_epoch DESC`
+     ORDER BY ${EPOCH_TO_SECONDS_SQL} DESC, created_at_epoch DESC`
   );
   return stmt.all(project) as Observation[];
 }
