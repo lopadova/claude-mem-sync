@@ -8,6 +8,8 @@ import {
   insertObservation,
   ensureSession,
   epochToIsoString,
+  queryObservations,
+  queryObservationsOlderThan,
   rebuildFts,
   runIntegrityCheck,
   getObservationCount,
@@ -355,6 +357,57 @@ describe("Import schema compatibility (current claude-mem)", () => {
     expect(epochToIsoString(1710000000).startsWith("2024-")).toBe(true);
     // A seconds value and its millisecond equivalent resolve to the same instant.
     expect(epochToIsoString(1710000000)).toBe(epochToIsoString(1710000000000));
+  });
+
+  test("queryObservationsOlderThan selects old rows regardless of epoch unit (prune cutoff)", () => {
+    const db = createTestMemDb();
+    const nowSecs = Math.floor(Date.now() / 1000);
+    const cutoff = nowSecs - 30 * 86400; // 30 days ago, in seconds
+
+    // Old observation stored in MILLISECONDS — the regression case (current claude-mem).
+    insertTestObservation(db, { memory_session_id: "s-old-ms", title: "old ms", created_at_epoch: (nowSecs - 365 * 86400) * 1000 });
+    // Recent observation in MILLISECONDS — must be excluded.
+    insertTestObservation(db, { memory_session_id: "s-new-ms", title: "new ms", created_at_epoch: nowSecs * 1000 });
+    // Old observation in SECONDS (legacy) — must be included.
+    insertTestObservation(db, { memory_session_id: "s-old-secs", title: "old secs", created_at_epoch: nowSecs - 400 * 86400 });
+
+    const old = queryObservationsOlderThan(db, cutoff);
+    expect(old.map((o) => o.title).sort()).toEqual(["old ms", "old secs"]);
+
+    db.close();
+  });
+
+  test("queryObservationsOlderThan excludes rows exactly at the cutoff, includes strictly older", () => {
+    const db = createTestMemDb();
+    const cutoff = 1700000000; // seconds
+    insertTestObservation(db, { memory_session_id: "s-eq", title: "at cutoff", created_at_epoch: cutoff });
+    insertTestObservation(db, { memory_session_id: "s-older", title: "older", created_at_epoch: cutoff - 1 });
+    insertTestObservation(db, { memory_session_id: "s-eq-ms", title: "at cutoff ms", created_at_epoch: cutoff * 1000 });
+
+    expect(queryObservationsOlderThan(db, cutoff).map((o) => o.title)).toEqual(["older"]);
+    db.close();
+  });
+
+  test("queryObservations orders by real time across mixed seconds/ms units", () => {
+    const db = createTestMemDb();
+    // Newer observation stored in SECONDS; older one stored in MILLISECONDS.
+    insertTestObservation(db, { memory_session_id: "s-new", title: "newer secs", created_at_epoch: 1767225600, project: "p" }); // 2026
+    insertTestObservation(db, { memory_session_id: "s-old", title: "older ms", created_at_epoch: 1577836800000, project: "p" }); // 2020
+
+    // Raw `ORDER BY created_at_epoch DESC` would put the ms row first (1.58e12 > 1.77e9),
+    // i.e. the older observation ahead of the newer one. Normalized ordering fixes it.
+    const rows = queryObservations(db, "p");
+    expect(rows.map((o) => o.title)).toEqual(["newer secs", "older ms"]);
+
+    db.close();
+  });
+
+  test("queryObservationsOlderThan returns empty when nothing is older", () => {
+    const db = createTestMemDb();
+    insertTestObservation(db, { created_at_epoch: 1700000000 });
+    insertTestObservation(db, { memory_session_id: "s2", title: "ms", created_at_epoch: 1700000000 * 1000 });
+    expect(queryObservationsOlderThan(db, 1600000000)).toEqual([]);
+    db.close();
   });
 
   test("isFileImported reports false for an unknown hash and true after logging it", () => {

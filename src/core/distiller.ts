@@ -1,6 +1,7 @@
 import { join } from "path";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "fs";
 import { logger } from "./logger";
+import { epochToIsoString, epochToMillis } from "./epoch";
 import {
   buildDistillationSystemPrompt,
   buildDistillationUserPrompt,
@@ -17,6 +18,39 @@ import type {
 } from "../types/distillation";
 import { LLMDistillationResponseSchema } from "../types/distillation";
 import type { DistillationConfig } from "../types/config";
+
+/**
+ * Compute the oldest/newest observation timestamps as ISO strings.
+ *
+ * Merged sets can mix seconds (legacy exports) and milliseconds (current
+ * claude-mem), so the min/max must be taken on normalized instants — sorting
+ * raw `created_at_epoch` would rank any seconds value below any ms value and
+ * report the range backwards.
+ */
+export function computeDateRange(observations: Observation[]): { oldest: string; newest: string } {
+  if (observations.length === 0) return { oldest: "", newest: "" };
+  // Compare on a normalized (ms) instant, but format the ORIGINAL epoch so any
+  // sub-second precision is preserved (epochToSeconds would truncate it).
+  let oldest = observations[0];
+  let newest = observations[0];
+  let minMs = epochToMillis(oldest.created_at_epoch);
+  let maxMs = minMs;
+  for (const obs of observations) {
+    const ms = epochToMillis(obs.created_at_epoch);
+    if (ms < minMs) {
+      minMs = ms;
+      oldest = obs;
+    }
+    if (ms > maxMs) {
+      maxMs = ms;
+      newest = obs;
+    }
+  }
+  return {
+    oldest: epochToIsoString(oldest.created_at_epoch),
+    newest: epochToIsoString(newest.created_at_epoch),
+  };
+}
 
 // ── Load merged observations ────────────────────────────────────────
 
@@ -201,8 +235,6 @@ export async function callDistillationAPI(
     typeBreakdown[obs.type] = (typeBreakdown[obs.type] ?? 0) + 1;
   }
 
-  const epochs = observations.map((o) => o.created_at_epoch).sort((a, b) => a - b);
-
   // Cost estimate varies by provider
   let estimatedCost: number;
   if (provider === "anthropic") {
@@ -221,10 +253,7 @@ export async function callDistillationAPI(
       totalObservations: observations.length,
       uniqueDevs,
       typeBreakdown,
-      dateRange: {
-        oldest: epochs.length > 0 ? new Date(epochs[0] * 1000).toISOString() : "",
-        newest: epochs.length > 0 ? new Date(epochs[epochs.length - 1] * 1000).toISOString() : "",
-      },
+      dateRange: computeDateRange(observations),
     },
     outputStats: {
       rulesGenerated: parsed.rules.length,

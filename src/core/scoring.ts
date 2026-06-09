@@ -1,4 +1,5 @@
 import { TYPE_WEIGHTS } from "./constants";
+import { epochToSeconds } from "./epoch";
 import type { Observation } from "../types/observation";
 
 export function calculateTypeWeight(type: string): number {
@@ -10,7 +11,11 @@ export function calculateTypeWeight(type: string): number {
  * 1 week=~0.96, 1 month=~0.85, 6 months=~0.56, 1 year=~0.46, 3 years=~0.32
  */
 export function calculateRecencyWeight(createdAtEpoch: number, nowEpoch: number): number {
-  const daysOld = Math.max(0, (nowEpoch - createdAtEpoch) / 86400);
+  // Normalize both operands to seconds: created_at_epoch may be ms (current
+  // claude-mem) or seconds (legacy/fixtures); nowEpoch is conventionally seconds.
+  const created = epochToSeconds(createdAtEpoch);
+  const now = epochToSeconds(nowEpoch);
+  const daysOld = Math.max(0, (now - created) / 86400);
   return 1 / (1 + Math.log(1 + daysOld / 150));
 }
 

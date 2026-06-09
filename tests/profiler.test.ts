@@ -165,6 +165,32 @@ describe("profiler", () => {
 
       expect(profile.temporalPattern.consistency).toBe(1);
     });
+
+    // Regression: claude-mem stores created_at_epoch in MILLISECONDS. The
+    // activity buckets must not multiply ms by 1000 (which yields year 58408).
+    test("buckets a millisecond-epoch observation into the correct month", () => {
+      const msEpoch = 1781024952302; // 2026-06-09T17:09:12.302Z
+      const obs = [makeObs({ created_at_epoch: msEpoch })];
+      const contribs = [makeContrib("dev", obs)];
+      const profile = generateProfile("dev", "proj", contribs, [], contribs);
+
+      expect(profile.temporalPattern.monthly.map((m) => m.month)).toContain("2026-06");
+      expect(profile.temporalPattern.monthly.some((m) => m.month.startsWith("+0"))).toBe(false);
+      // Weekly buckets must not land in a far-future year either.
+      expect(profile.temporalPattern.weekly.length).toBeGreaterThan(0);
+      expect(
+        profile.temporalPattern.weekly.every((w) => !w.week.startsWith("+0") && !w.week.includes("58408")),
+      ).toBe(true);
+    });
+
+    test("seconds and millisecond epochs for the same instant bucket identically", () => {
+      const secs = 1781024952; // 2026-06-09
+      const profSecs = generateProfile("dev", "proj", [makeContrib("dev", [makeObs({ created_at_epoch: secs })])], [], []);
+      const profMs = generateProfile("dev", "proj", [makeContrib("dev", [makeObs({ created_at_epoch: secs * 1000 })])], [], []);
+      expect(profMs.temporalPattern.monthly.map((m) => m.month)).toEqual(
+        profSecs.temporalPattern.monthly.map((m) => m.month),
+      );
+    });
   });
 
   describe("generateTeamOverview", () => {

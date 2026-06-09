@@ -1,7 +1,7 @@
 import { join } from "path";
 import { mkdirSync, writeFileSync } from "fs";
 import { loadConfig, resolveProjectConfig, getEnabledProjects } from "../core/config";
-import { openMemDb, queryObservations } from "../core/mem-db";
+import { openMemDb, queryObservations, epochToIsoString } from "../core/mem-db";
 import { openAccessDb, logExport } from "../core/access-db";
 import { matchesFilter } from "../core/filter";
 import {
@@ -209,7 +209,7 @@ function printPreview(
   const displayed = observations.slice(0, maxDisplay);
 
   for (const obs of displayed) {
-    const date = new Date(obs.created_at_epoch * 1000).toISOString().slice(0, 10);
+    const date = epochToIsoString(obs.created_at_epoch).slice(0, 10);
     console.log(`  #${obs.id} [${obs.type}] ${date} "${obs.title}"`);
   }
 

@@ -65,6 +65,68 @@ describe("calculateRecencyWeight", () => {
     const weight = calculateRecencyWeight(threeYearsAgo, now);
     expect(weight).toBeGreaterThan(0.3);
   });
+
+  // Regression: claude-mem stores created_at_epoch in MILLISECONDS, but nowEpoch
+  // is passed in seconds. Without normalization, (nowSecs - createdMs) is hugely
+  // negative -> daysOld clamps to 0 -> weight 1.0, so imported observations never
+  // decay and are effectively immortal during cap-enforcement eviction.
+  test("a 1-year-old observation decays the same whether its epoch is seconds or ms", () => {
+    const nowSecs = Math.floor(Date.now() / 1000);
+    const oneYear = 365 * 86400;
+    const oldSecs = nowSecs - oneYear;
+    const oldMs = oldSecs * 1000;
+
+    const weightFromSeconds = calculateRecencyWeight(oldSecs, nowSecs);
+    const weightFromMs = calculateRecencyWeight(oldMs, nowSecs);
+
+    expect(weightFromMs).toBeCloseTo(weightFromSeconds, 5);
+    expect(weightFromMs).toBeLessThan(0.6); // genuinely decayed (~0.46), not 1.0
+  });
+
+  test("a brand-new millisecond observation scores ~1.0 (not clamped wrongly)", () => {
+    const nowSecs = Math.floor(Date.now() / 1000);
+    expect(calculateRecencyWeight(nowSecs * 1000, nowSecs)).toBeCloseTo(1.0, 2);
+  });
+
+  test("seconds and millisecond epochs give identical recency across many ages", () => {
+    const nowSecs = Math.floor(Date.now() / 1000);
+    for (const days of [1, 7, 30, 90, 180, 365, 1095]) {
+      const oldSecs = nowSecs - days * 86400;
+      expect(calculateRecencyWeight(oldSecs * 1000, nowSecs)).toBeCloseTo(
+        calculateRecencyWeight(oldSecs, nowSecs),
+        6,
+      );
+    }
+  });
+
+  test("nowEpoch passed in milliseconds still produces correct recency", () => {
+    const nowSecs = Math.floor(Date.now() / 1000);
+    const oneMonthAgoSecs = nowSecs - 30 * 86400;
+    // Defensive: even if a caller passes nowEpoch in ms, normalization keeps it correct.
+    expect(calculateRecencyWeight(oneMonthAgoSecs * 1000, nowSecs * 1000)).toBeCloseTo(
+      calculateRecencyWeight(oneMonthAgoSecs, nowSecs),
+      6,
+    );
+  });
+});
+
+describe("calculateScore with millisecond epochs", () => {
+  test("an old ms observation scores below a fresh one (passive mode)", () => {
+    const nowSecs = Math.floor(Date.now() / 1000);
+    const weights = { typeWeight: 0.4, recencyWeight: 0.3, thirdWeight: 0.3 };
+    const score = (epochMs: number) =>
+      calculateScore({
+        typeWeight: calculateTypeWeight("change"),
+        recencyWeight: calculateRecencyWeight(epochMs, nowSecs),
+        diffusionWeight: 0.5,
+        weights,
+        mode: "passive",
+      });
+
+    const fresh = score(nowSecs * 1000);
+    const old = score((nowSecs - 365 * 86400) * 1000);
+    expect(fresh).toBeGreaterThan(old);
+  });
 });
 
 describe("calculateAccessWeight", () => {

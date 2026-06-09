@@ -1,5 +1,6 @@
 import type { SqliteDatabase } from "./compat";
 import type { Observation } from "../types/observation";
+import { EPOCH_TO_SECONDS_SQL } from "./mem-db";
 import {
   calculateTypeWeight,
   calculateRecencyWeight,
@@ -204,7 +205,7 @@ export function getSyncTimeline(
   if (result.length === 0 && memDb) {
     const obsRows = memDb
       .prepare(
-        `SELECT strftime('%Y-%m', created_at_epoch, 'unixepoch') as month,
+        `SELECT strftime('%Y-%m', ${EPOCH_TO_SECONDS_SQL}, 'unixepoch') as month,
                 COUNT(*) as count
          FROM observations GROUP BY month ORDER BY month`,
       )
@@ -292,7 +293,7 @@ export function getObservationScores(
     .prepare(
       `SELECT id, type, title, narrative, text, facts, concepts, created_at_epoch
        FROM observations WHERE project = ?
-       ORDER BY created_at_epoch DESC`,
+       ORDER BY ${EPOCH_TO_SECONDS_SQL} DESC, created_at_epoch DESC`,
     )
     .all(project) as Observation[];
 
