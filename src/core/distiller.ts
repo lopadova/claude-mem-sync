@@ -1,6 +1,7 @@
 import { join } from "path";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "fs";
 import { logger } from "./logger";
+import { epochToIsoString } from "./epoch";
 import {
   buildDistillationSystemPrompt,
   buildDistillationUserPrompt,
@@ -222,8 +223,8 @@ export async function callDistillationAPI(
       uniqueDevs,
       typeBreakdown,
       dateRange: {
-        oldest: epochs.length > 0 ? new Date(epochs[0] * 1000).toISOString() : "",
-        newest: epochs.length > 0 ? new Date(epochs[epochs.length - 1] * 1000).toISOString() : "",
+        oldest: epochs.length > 0 ? epochToIsoString(epochs[0]) : "",
+        newest: epochs.length > 0 ? epochToIsoString(epochs[epochs.length - 1]) : "",
       },
     },
     outputStats: {

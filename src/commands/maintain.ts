@@ -4,10 +4,12 @@ import { copyFile } from "../core/compat";
 import {
   openMemDbWritable,
   queryObservations,
+  queryObservationsOlderThan,
   rebuildFts,
   runIntegrityCheck,
   getDbSizeBytes,
 } from "../core/mem-db";
+import { epochToSeconds } from "../core/epoch";
 import {
   openAccessDb,
   pruneOldAccessEntries,
@@ -58,8 +60,8 @@ export default async function run(_args: ParsedArgs): Promise<void> {
         // Never prune keep-tagged observations
         if (hasKeepTag(obs, keepTags)) continue;
 
-        // Only consider observations older than the threshold
-        if (obs.created_at_epoch >= cutoffEpoch) continue;
+        // Only consider observations older than the threshold (epoch may be ms or s)
+        if (epochToSeconds(obs.created_at_epoch) >= cutoffEpoch) continue;
 
         const typeW = calculateTypeWeight(obs.type);
         const recencyW = calculateRecencyWeight(obs.created_at_epoch, nowEpoch);
@@ -78,11 +80,7 @@ export default async function run(_args: ParsedArgs): Promise<void> {
 
     // Also score observations that have no project / belong to non-configured projects
     // by querying all observations and filtering out those already processed
-    const allObs = db.prepare(
-      `SELECT id, memory_session_id, type, title, narrative, text, facts, concepts, files_read, files_modified, created_at_epoch, project
-       FROM observations
-       WHERE created_at_epoch < ?`
-    ).all(cutoffEpoch) as Array<{ id: number; memory_session_id: string; type: string; title: string; narrative: string | null; text: string | null; facts: string | null; concepts: string | null; files_read: string | null; files_modified: string | null; created_at_epoch: number; project?: string }>;
+    const allObs = queryObservationsOlderThan(db, cutoffEpoch);
 
     const alreadyConsidered = new Set(idsToPrune);
     // We need to also track IDs already processed but not pruned

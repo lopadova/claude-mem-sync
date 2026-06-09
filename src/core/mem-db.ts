@@ -1,9 +1,17 @@
 import { createDatabase, getFileSize, type SqliteDatabase } from "./compat";
 import { BUSY_TIMEOUT_MS } from "./constants";
 import { logger } from "./logger";
+import { epochToIsoString } from "./epoch";
 import type { Observation } from "../types/observation";
 
 export type { SqliteDatabase };
+// Re-exported for callers that import it from mem-db (single source of truth: ./epoch).
+export { epochToIsoString } from "./epoch";
+
+// SQL expression that normalizes a (seconds-or-ms) `created_at_epoch` to seconds.
+// 1e12 ms = 2001-09-09; the same value as seconds would be year 33658.
+const EPOCH_TO_SECONDS_SQL =
+  "(CASE WHEN created_at_epoch >= 1000000000000 THEN created_at_epoch / 1000 ELSE created_at_epoch END)";
 
 export function openMemDb(dbPath: string): SqliteDatabase {
   const db = createDatabase(dbPath, { readonly: true });
@@ -26,6 +34,19 @@ export function queryObservations(db: SqliteDatabase, project: string): Observat
      ORDER BY created_at_epoch DESC`
   );
   return stmt.all(project) as Observation[];
+}
+
+/**
+ * Select observations created strictly before `cutoffEpochSeconds` (in SECONDS),
+ * normalizing each row's `created_at_epoch` (which may be seconds or ms). Used by
+ * maintenance pruning, where a raw comparison would never match ms-based rows.
+ */
+export function queryObservationsOlderThan(db: SqliteDatabase, cutoffEpochSeconds: number): Observation[] {
+  return db.prepare(
+    `SELECT id, memory_session_id, type, title, narrative, text, facts, concepts, files_read, files_modified, created_at_epoch, project
+     FROM observations
+     WHERE ${EPOCH_TO_SECONDS_SQL} < ?`
+  ).all(cutoffEpochSeconds) as Observation[];
 }
 
 export function getObservationCount(db: SqliteDatabase, project?: string): number {
@@ -59,22 +80,6 @@ export function checkDuplicate(
      LIMIT 1`
   ).get(memorySessionId, title, createdAtEpoch);
   return row != null;
-}
-
-/**
- * Convert a claude-mem `created_at_epoch` to an ISO-8601 string.
- *
- * The field's unit is not consistent across the ecosystem: the current
- * claude-mem schema stores MILLISECONDS, while older rows and several places in
- * this repo assume SECONDS (display multiplies by 1000, scoring compares against
- * `Date.now()/1000`). Normalize by magnitude — anything below 1e12 (every
- * plausible seconds value; 1e12 ms is the year 2001) is treated as seconds and
- * scaled up. This yields a correct timestamp for both conventions instead of
- * producing a 1970 (seconds read as ms) or year-58408 (ms read as seconds) date.
- */
-export function epochToIsoString(epoch: number): string {
-  const ms = epoch < 1e12 ? epoch * 1000 : epoch;
-  return new Date(ms).toISOString();
 }
 
 export function insertObservation(db: SqliteDatabase, obs: Observation, project: string): void {

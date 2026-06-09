@@ -204,7 +204,9 @@ export function getSyncTimeline(
   if (result.length === 0 && memDb) {
     const obsRows = memDb
       .prepare(
-        `SELECT strftime('%Y-%m', created_at_epoch, 'unixepoch') as month,
+        `SELECT strftime('%Y-%m',
+                  CASE WHEN created_at_epoch >= 1000000000000 THEN created_at_epoch / 1000 ELSE created_at_epoch END,
+                  'unixepoch') as month,
                 COUNT(*) as count
          FROM observations GROUP BY month ORDER BY month`,
       )

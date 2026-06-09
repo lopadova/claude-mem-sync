@@ -8,6 +8,7 @@ import {
   insertObservation,
   ensureSession,
   epochToIsoString,
+  queryObservationsOlderThan,
   rebuildFts,
   runIntegrityCheck,
   getObservationCount,
@@ -355,6 +356,24 @@ describe("Import schema compatibility (current claude-mem)", () => {
     expect(epochToIsoString(1710000000).startsWith("2024-")).toBe(true);
     // A seconds value and its millisecond equivalent resolve to the same instant.
     expect(epochToIsoString(1710000000)).toBe(epochToIsoString(1710000000000));
+  });
+
+  test("queryObservationsOlderThan selects old rows regardless of epoch unit (prune cutoff)", () => {
+    const db = createTestMemDb();
+    const nowSecs = Math.floor(Date.now() / 1000);
+    const cutoff = nowSecs - 30 * 86400; // 30 days ago, in seconds
+
+    // Old observation stored in MILLISECONDS — the regression case (current claude-mem).
+    insertTestObservation(db, { memory_session_id: "s-old-ms", title: "old ms", created_at_epoch: (nowSecs - 365 * 86400) * 1000 });
+    // Recent observation in MILLISECONDS — must be excluded.
+    insertTestObservation(db, { memory_session_id: "s-new-ms", title: "new ms", created_at_epoch: nowSecs * 1000 });
+    // Old observation in SECONDS (legacy) — must be included.
+    insertTestObservation(db, { memory_session_id: "s-old-secs", title: "old secs", created_at_epoch: nowSecs - 400 * 86400 });
+
+    const old = queryObservationsOlderThan(db, cutoff);
+    expect(old.map((o) => o.title).sort()).toEqual(["old ms", "old secs"]);
+
+    db.close();
   });
 
   test("isFileImported reports false for an unknown hash and true after logging it", () => {

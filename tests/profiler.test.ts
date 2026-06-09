@@ -165,6 +165,18 @@ describe("profiler", () => {
 
       expect(profile.temporalPattern.consistency).toBe(1);
     });
+
+    // Regression: claude-mem stores created_at_epoch in MILLISECONDS. The
+    // activity buckets must not multiply ms by 1000 (which yields year 58408).
+    test("buckets a millisecond-epoch observation into the correct month", () => {
+      const msEpoch = 1781024952302; // 2026-06-09T17:09:12.302Z
+      const obs = [makeObs({ created_at_epoch: msEpoch })];
+      const contribs = [makeContrib("dev", obs)];
+      const profile = generateProfile("dev", "proj", contribs, [], contribs);
+
+      expect(profile.temporalPattern.monthly.map((m) => m.month)).toContain("2026-06");
+      expect(profile.temporalPattern.monthly.some((m) => m.month.startsWith("+0"))).toBe(false);
+    });
   });
 
   describe("generateTeamOverview", () => {

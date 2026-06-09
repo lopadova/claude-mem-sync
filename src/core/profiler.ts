@@ -16,6 +16,7 @@ import type {
   KnowledgeGap,
 } from "../types/profile";
 import { TYPE_WEIGHTS } from "./constants";
+import { epochToMillis } from "./epoch";
 
 // ── Contribution Loading ────────────────────────────────────────────
 
@@ -223,7 +224,7 @@ function computeTemporalPattern(devObs: Observation[]): TemporalPattern {
   const monthlyCounts = new Map<string, number>();
 
   for (const obs of devObs) {
-    const date = new Date(obs.created_at_epoch * 1000);
+    const date = new Date(epochToMillis(obs.created_at_epoch));
     const weekKey = getISOWeek(date);
     const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 

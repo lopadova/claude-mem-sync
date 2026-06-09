@@ -65,6 +65,28 @@ describe("calculateRecencyWeight", () => {
     const weight = calculateRecencyWeight(threeYearsAgo, now);
     expect(weight).toBeGreaterThan(0.3);
   });
+
+  // Regression: claude-mem stores created_at_epoch in MILLISECONDS, but nowEpoch
+  // is passed in seconds. Without normalization, (nowSecs - createdMs) is hugely
+  // negative -> daysOld clamps to 0 -> weight 1.0, so imported observations never
+  // decay and are effectively immortal during cap-enforcement eviction.
+  test("a 1-year-old observation decays the same whether its epoch is seconds or ms", () => {
+    const nowSecs = Math.floor(Date.now() / 1000);
+    const oneYear = 365 * 86400;
+    const oldSecs = nowSecs - oneYear;
+    const oldMs = oldSecs * 1000;
+
+    const weightFromSeconds = calculateRecencyWeight(oldSecs, nowSecs);
+    const weightFromMs = calculateRecencyWeight(oldMs, nowSecs);
+
+    expect(weightFromMs).toBeCloseTo(weightFromSeconds, 5);
+    expect(weightFromMs).toBeLessThan(0.6); // genuinely decayed (~0.46), not 1.0
+  });
+
+  test("a brand-new millisecond observation scores ~1.0 (not clamped wrongly)", () => {
+    const nowSecs = Math.floor(Date.now() / 1000);
+    expect(calculateRecencyWeight(nowSecs * 1000, nowSecs)).toBeCloseTo(1.0, 2);
+  });
 });
 
 describe("calculateAccessWeight", () => {
