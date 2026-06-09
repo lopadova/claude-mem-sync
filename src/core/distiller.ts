@@ -1,7 +1,7 @@
 import { join } from "path";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "fs";
 import { logger } from "./logger";
-import { epochToIsoString } from "./epoch";
+import { epochToIsoString, epochToSeconds } from "./epoch";
 import {
   buildDistillationSystemPrompt,
   buildDistillationUserPrompt,
@@ -18,6 +18,26 @@ import type {
 } from "../types/distillation";
 import { LLMDistillationResponseSchema } from "../types/distillation";
 import type { DistillationConfig } from "../types/config";
+
+/**
+ * Compute the oldest/newest observation timestamps as ISO strings.
+ *
+ * Merged sets can mix seconds (legacy exports) and milliseconds (current
+ * claude-mem), so the min/max must be taken on normalized instants — sorting
+ * raw `created_at_epoch` would rank any seconds value below any ms value and
+ * report the range backwards.
+ */
+export function computeDateRange(observations: Observation[]): { oldest: string; newest: string } {
+  if (observations.length === 0) return { oldest: "", newest: "" };
+  let minSecs = Infinity;
+  let maxSecs = -Infinity;
+  for (const obs of observations) {
+    const secs = epochToSeconds(obs.created_at_epoch);
+    if (secs < minSecs) minSecs = secs;
+    if (secs > maxSecs) maxSecs = secs;
+  }
+  return { oldest: epochToIsoString(minSecs), newest: epochToIsoString(maxSecs) };
+}
 
 // ── Load merged observations ────────────────────────────────────────
 
@@ -202,8 +222,6 @@ export async function callDistillationAPI(
     typeBreakdown[obs.type] = (typeBreakdown[obs.type] ?? 0) + 1;
   }
 
-  const epochs = observations.map((o) => o.created_at_epoch).sort((a, b) => a - b);
-
   // Cost estimate varies by provider
   let estimatedCost: number;
   if (provider === "anthropic") {
@@ -222,10 +240,7 @@ export async function callDistillationAPI(
       totalObservations: observations.length,
       uniqueDevs,
       typeBreakdown,
-      dateRange: {
-        oldest: epochs.length > 0 ? epochToIsoString(epochs[0]) : "",
-        newest: epochs.length > 0 ? epochToIsoString(epochs[epochs.length - 1]) : "",
-      },
+      dateRange: computeDateRange(observations),
     },
     outputStats: {
       rulesGenerated: parsed.rules.length,

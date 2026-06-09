@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { parseDistillationResponse, getProviderConfig, buildApiRequest, parseApiResponse } from "../src/core/distiller";
+import { parseDistillationResponse, getProviderConfig, buildApiRequest, parseApiResponse, computeDateRange } from "../src/core/distiller";
 import {
   buildDistillationSystemPrompt,
   buildDistillationUserPrompt,
@@ -52,6 +52,26 @@ describe("distillation prompts", () => {
     expect(prompt).toContain("Keep me");
     expect(prompt).not.toContain("Exclude me");
     expect(prompt).toContain("1 observations");
+  });
+
+  test("computeDateRange normalizes mixed seconds/ms units by real instant", () => {
+    // A seconds-based obs that is actually NEWER than a ms-based obs. Raw numeric
+    // sorting would put the seconds value (1.77e9) below the ms value (1.58e12)
+    // and report the range backwards; normalization must fix the ordering.
+    const newerInSeconds = 1767225600; // 2026-01-01T00:00:00Z, seconds
+    const olderInMs = 1577836800000; // 2020-01-01T00:00:00Z, ms
+    const obs = [
+      makeObs({ created_at_epoch: newerInSeconds }),
+      makeObs({ created_at_epoch: olderInMs }),
+    ];
+
+    const { oldest, newest } = computeDateRange(obs);
+    expect(oldest).toBe("2020-01-01T00:00:00.000Z");
+    expect(newest).toBe("2026-01-01T00:00:00.000Z");
+  });
+
+  test("computeDateRange returns empty strings for no observations", () => {
+    expect(computeDateRange([])).toEqual({ oldest: "", newest: "" });
   });
 
   test("estimateTokens returns reasonable estimate", () => {
