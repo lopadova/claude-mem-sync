@@ -1,7 +1,7 @@
 import { join } from "path";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "fs";
 import { logger } from "./logger";
-import { epochToIsoString, epochToSeconds } from "./epoch";
+import { epochToIsoString, epochToMillis } from "./epoch";
 import {
   buildDistillationSystemPrompt,
   buildDistillationUserPrompt,
@@ -29,14 +29,27 @@ import type { DistillationConfig } from "../types/config";
  */
 export function computeDateRange(observations: Observation[]): { oldest: string; newest: string } {
   if (observations.length === 0) return { oldest: "", newest: "" };
-  let minSecs = Infinity;
-  let maxSecs = -Infinity;
+  // Compare on a normalized (ms) instant, but format the ORIGINAL epoch so any
+  // sub-second precision is preserved (epochToSeconds would truncate it).
+  let oldest = observations[0];
+  let newest = observations[0];
+  let minMs = epochToMillis(oldest.created_at_epoch);
+  let maxMs = minMs;
   for (const obs of observations) {
-    const secs = epochToSeconds(obs.created_at_epoch);
-    if (secs < minSecs) minSecs = secs;
-    if (secs > maxSecs) maxSecs = secs;
+    const ms = epochToMillis(obs.created_at_epoch);
+    if (ms < minMs) {
+      minMs = ms;
+      oldest = obs;
+    }
+    if (ms > maxMs) {
+      maxMs = ms;
+      newest = obs;
+    }
   }
-  return { oldest: epochToIsoString(minSecs), newest: epochToIsoString(maxSecs) };
+  return {
+    oldest: epochToIsoString(oldest.created_at_epoch),
+    newest: epochToIsoString(newest.created_at_epoch),
+  };
 }
 
 // ── Load merged observations ────────────────────────────────────────

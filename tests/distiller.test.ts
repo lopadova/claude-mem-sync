@@ -74,6 +74,13 @@ describe("distillation prompts", () => {
     expect(computeDateRange([])).toEqual({ oldest: "", newest: "" });
   });
 
+  test("computeDateRange preserves millisecond precision of the bounding instants", () => {
+    const preciseMs = 1781024952302; // 2026-06-09T17:09:12.302Z — note sub-second part
+    const { oldest, newest } = computeDateRange([makeObs({ created_at_epoch: preciseMs })]);
+    expect(oldest).toBe("2026-06-09T17:09:12.302Z");
+    expect(newest).toBe("2026-06-09T17:09:12.302Z");
+  });
+
   test("estimateTokens returns reasonable estimate", () => {
     const obs = [makeObs({ narrative: "a".repeat(1000) })];
     const tokens = estimateTokens(obs);
