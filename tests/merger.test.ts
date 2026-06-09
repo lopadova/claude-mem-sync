@@ -254,4 +254,60 @@ describe("applyEvictionCap", () => {
 
     expect(result).toEqual([]);
   });
+
+  // Regression: imported observations carry MILLISECOND epochs while nowEpoch is
+  // seconds. If recency isn't normalized, every ms observation scores as
+  // "brand new" (weight 1.0) and old ones are never evicted (effectively
+  // immortal). Eviction must rank ms observations by their real age.
+  describe("millisecond epochs", () => {
+    const MS = (secs: number) => secs * 1000;
+
+    test("evicts the oldest observation even when epochs are in milliseconds", () => {
+      const observations = [
+        makeObs({ id: 1, type: "change", created_at_epoch: MS(NOW) }),                 // brand new
+        makeObs({ id: 2, type: "change", created_at_epoch: MS(NOW - 365 * 86400) }),   // 1 year old
+        makeObs({ id: 3, type: "change", created_at_epoch: MS(NOW - 730 * 86400) }),   // 2 years old
+      ];
+
+      const result = applyEvictionCap({
+        observations,
+        cap: 2,
+        mode: "passive",
+        weights: DEFAULT_WEIGHTS,
+        keepTags: ["#keep"],
+        nowEpoch: NOW, // seconds
+        devCounts: new Map([[1, 5], [2, 5], [3, 5]]), // equal diffusion -> recency decides
+        totalDevs: 10,
+      });
+
+      expect(result).toHaveLength(2);
+      const ids = result.map((o) => o.id);
+      expect(ids).toContain(1); // newest survives
+      expect(ids).not.toContain(3); // oldest evicted
+      // Scores must be strictly ordered by age (not all clamped to the same value).
+      expect(result[0].score).toBeGreaterThan(result[1].score);
+    });
+
+    test("a fresh millisecond observation outscores a year-old one of the same type", () => {
+      const observations = [
+        makeObs({ id: 1, type: "decision", created_at_epoch: MS(NOW) }),
+        makeObs({ id: 2, type: "decision", created_at_epoch: MS(NOW - 365 * 86400) }),
+      ];
+
+      const result = applyEvictionCap({
+        observations,
+        cap: 2,
+        mode: "passive",
+        weights: DEFAULT_WEIGHTS,
+        keepTags: ["#keep"],
+        nowEpoch: NOW,
+        devCounts: new Map([[1, 5], [2, 5]]),
+        totalDevs: 10,
+      });
+
+      const fresh = result.find((o) => o.id === 1)!;
+      const old = result.find((o) => o.id === 2)!;
+      expect(fresh.score).toBeGreaterThan(old.score);
+    });
+  });
 });

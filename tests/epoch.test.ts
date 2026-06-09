@@ -32,4 +32,28 @@ describe("epoch normalization helpers", () => {
     // 1e12 ms = 2001-09-09; as seconds it would be year 33658 — implausible.
     expect(epochToSeconds(1e12)).toBe(1e9);
   });
+
+  test("values just below and above the 1e12 threshold", () => {
+    expect(epochToSeconds(999_999_999_999)).toBe(999_999_999_999); // < 1e12 -> seconds, untouched
+    expect(epochToSeconds(1_000_000_000_001)).toBe(1_000_000_000); // >= 1e12 -> ms, scaled down
+    expect(epochToMillis(999_999_999_999)).toBe(999_999_999_999_000);
+    expect(epochToMillis(1_000_000_000_001)).toBe(1_000_000_000_001);
+  });
+
+  test("epochToIsoString is unit-agnostic and idempotent across equivalents", () => {
+    expect(epochToIsoString(1700000000)).toBe(epochToIsoString(1700000000000));
+  });
+
+  test("normalization preserves chronological ordering across mixed units", () => {
+    const olderInMs = 1700000000 * 1000; // older instant, ms
+    const newerInSecs = 1750000000; // newer instant, seconds
+    expect(epochToSeconds(olderInMs)).toBeLessThan(epochToSeconds(newerInSecs));
+    expect(epochToMillis(olderInMs)).toBeLessThan(epochToMillis(newerInSecs));
+  });
+
+  test("zero is treated as seconds (epoch 0 -> 1970)", () => {
+    expect(epochToSeconds(0)).toBe(0);
+    expect(epochToMillis(0)).toBe(0);
+    expect(epochToIsoString(0)).toBe("1970-01-01T00:00:00.000Z");
+  });
 });

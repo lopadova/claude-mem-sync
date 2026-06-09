@@ -176,6 +176,20 @@ describe("profiler", () => {
 
       expect(profile.temporalPattern.monthly.map((m) => m.month)).toContain("2026-06");
       expect(profile.temporalPattern.monthly.some((m) => m.month.startsWith("+0"))).toBe(false);
+      // Weekly buckets must not land in a far-future year either.
+      expect(profile.temporalPattern.weekly.length).toBeGreaterThan(0);
+      expect(
+        profile.temporalPattern.weekly.every((w) => !w.week.startsWith("+0") && !w.week.includes("58408")),
+      ).toBe(true);
+    });
+
+    test("seconds and millisecond epochs for the same instant bucket identically", () => {
+      const secs = 1781024952; // 2026-06-09
+      const profSecs = generateProfile("dev", "proj", [makeContrib("dev", [makeObs({ created_at_epoch: secs })])], [], []);
+      const profMs = generateProfile("dev", "proj", [makeContrib("dev", [makeObs({ created_at_epoch: secs * 1000 })])], [], []);
+      expect(profMs.temporalPattern.monthly.map((m) => m.month)).toEqual(
+        profSecs.temporalPattern.monthly.map((m) => m.month),
+      );
     });
   });
 

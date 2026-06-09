@@ -376,6 +376,25 @@ describe("Import schema compatibility (current claude-mem)", () => {
     db.close();
   });
 
+  test("queryObservationsOlderThan excludes rows exactly at the cutoff, includes strictly older", () => {
+    const db = createTestMemDb();
+    const cutoff = 1700000000; // seconds
+    insertTestObservation(db, { memory_session_id: "s-eq", title: "at cutoff", created_at_epoch: cutoff });
+    insertTestObservation(db, { memory_session_id: "s-older", title: "older", created_at_epoch: cutoff - 1 });
+    insertTestObservation(db, { memory_session_id: "s-eq-ms", title: "at cutoff ms", created_at_epoch: cutoff * 1000 });
+
+    expect(queryObservationsOlderThan(db, cutoff).map((o) => o.title)).toEqual(["older"]);
+    db.close();
+  });
+
+  test("queryObservationsOlderThan returns empty when nothing is older", () => {
+    const db = createTestMemDb();
+    insertTestObservation(db, { created_at_epoch: 1700000000 });
+    insertTestObservation(db, { memory_session_id: "s2", title: "ms", created_at_epoch: 1700000000 * 1000 });
+    expect(queryObservationsOlderThan(db, 1600000000)).toEqual([]);
+    db.close();
+  });
+
   test("isFileImported reports false for an unknown hash and true after logging it", () => {
     // Use a temp file (not ":memory:") — openAccessDb mkdir's the parent dir.
     const dbPath = join(tmpdir(), `mem-sync-access-${process.pid}-${EPOCH_MS}.db`);
