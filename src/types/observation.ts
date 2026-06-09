@@ -11,6 +11,11 @@ export interface Observation {
   files_read: string | null;
   files_modified: string | null;
   created_at_epoch: number;
+  /**
+   * ISO-8601 timestamp. Optional because the export side only selects
+   * `created_at_epoch`; on import it is derived from the epoch when absent.
+   */
+  created_at?: string;
   project?: string;
 }
 

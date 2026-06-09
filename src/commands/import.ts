@@ -2,7 +2,7 @@ import { join } from "path";
 import { existsSync, readFileSync } from "fs";
 import { sha256 } from "../core/compat";
 import { loadConfig, resolveProjectConfig, getEnabledProjects } from "../core/config";
-import { openMemDbWritable, checkDuplicate, insertObservation, rebuildFts, runIntegrityCheck } from "../core/mem-db";
+import { openMemDbWritable, checkDuplicate, insertObservation, ensureSession, rebuildFts, runIntegrityCheck } from "../core/mem-db";
 import { openAccessDb, isFileImported, logImport } from "../core/access-db";
 import { shallowClone } from "../core/git";
 import { EXPORT_JSON_VERSION } from "../core/constants";
@@ -124,6 +124,7 @@ async function importProject(
         if (isDuplicate) {
           skippedCount++;
         } else {
+          ensureSession(memDb, obs, resolved.memProject);
           insertObservation(memDb, obs, resolved.memProject);
           newCount++;
         }

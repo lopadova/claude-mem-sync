@@ -96,7 +96,7 @@ export function isFileImported(db: SqliteDatabase, project: string, fileHash: st
   const row = db.prepare(
     `SELECT 1 FROM import_log WHERE project = ? AND file_hash = ? LIMIT 1`
   ).get(project, fileHash);
-  return row !== null;
+  return row != null;
 }
 
 export function logImport(

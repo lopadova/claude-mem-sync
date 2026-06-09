@@ -61,13 +61,51 @@ export function checkDuplicate(
   return row != null;
 }
 
+/**
+ * Convert a claude-mem `created_at_epoch` to an ISO-8601 string.
+ *
+ * The field's unit is not consistent across the ecosystem: the current
+ * claude-mem schema stores MILLISECONDS, while older rows and several places in
+ * this repo assume SECONDS (display multiplies by 1000, scoring compares against
+ * `Date.now()/1000`). Normalize by magnitude — anything below 1e12 (every
+ * plausible seconds value; 1e12 ms is the year 2001) is treated as seconds and
+ * scaled up. This yields a correct timestamp for both conventions instead of
+ * producing a 1970 (seconds read as ms) or year-58408 (ms read as seconds) date.
+ */
+export function epochToIsoString(epoch: number): string {
+  const ms = epoch < 1e12 ? epoch * 1000 : epoch;
+  return new Date(ms).toISOString();
+}
+
 export function insertObservation(db: SqliteDatabase, obs: Observation, project: string): void {
+  // `created_at` is NOT NULL in the current claude-mem schema. When the merged
+  // JSON lacks it (export only carries `created_at_epoch`), derive it from the epoch.
   db.prepare(
-    `INSERT INTO observations (memory_session_id, type, title, narrative, text, facts, concepts, files_read, files_modified, created_at_epoch, project)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO observations (memory_session_id, type, title, narrative, text, facts, concepts, files_read, files_modified, created_at_epoch, created_at, project)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     obs.memory_session_id, obs.type, obs.title, obs.narrative, obs.text,
-    obs.facts, obs.concepts, obs.files_read, obs.files_modified, obs.created_at_epoch, project
+    obs.facts, obs.concepts, obs.files_read, obs.files_modified, obs.created_at_epoch,
+    obs.created_at ?? epochToIsoString(obs.created_at_epoch), project
+  );
+}
+
+/**
+ * Ensure a parent sdk_sessions row exists for an imported observation.
+ *
+ * Imported observations carry the source machine's `memory_session_id`, which
+ * is absent from the target's `sdk_sessions`. The observations table has a
+ * `FOREIGN KEY(memory_session_id) REFERENCES sdk_sessions(memory_session_id)`,
+ * so inserting without this stub fails with "FOREIGN KEY constraint failed".
+ * INSERT OR IGNORE is a no-op when the session already exists.
+ */
+export function ensureSession(db: SqliteDatabase, obs: Observation, project: string): void {
+  db.prepare(
+    `INSERT OR IGNORE INTO sdk_sessions (content_session_id, memory_session_id, project, started_at, started_at_epoch, status)
+     VALUES (?, ?, ?, ?, ?, 'completed')`
+  ).run(
+    `imported-${obs.memory_session_id}`, obs.memory_session_id, project,
+    obs.created_at ?? epochToIsoString(obs.created_at_epoch), obs.created_at_epoch
   );
 }
 

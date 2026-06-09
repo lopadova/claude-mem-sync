@@ -1,10 +1,34 @@
 import { createDatabase, type SqliteDatabase } from "../../src/core/compat";
+import { epochToIsoString } from "../../src/core/mem-db";
 import type { Observation } from "../../src/types/observation";
 
-/** Create an in-memory DB with claude-mem-like schema for testing */
-export function createTestMemDb(): SqliteDatabase {
+/**
+ * Create an in-memory DB mirroring the current claude-mem schema for testing.
+ *
+ * Mirrors the real schema's invariants that the import pipeline depends on:
+ * `observations.created_at` is NOT NULL, `sdk_sessions` carries the columns
+ * `ensureSession()` writes, and observations have a FOREIGN KEY on
+ * `memory_session_id`. Foreign keys are OFF by default (SQLite default) so the
+ * many tests that insert observations without a parent session keep working;
+ * pass `{ enforceForeignKeys: true }` to reproduce the cross-machine FK case.
+ */
+export function createTestMemDb(opts: { enforceForeignKeys?: boolean } = {}): SqliteDatabase {
   const db = createDatabase(":memory:");
+  if (opts.enforceForeignKeys) {
+    db.exec("PRAGMA foreign_keys = ON");
+  }
   db.exec(`
+    CREATE TABLE sdk_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      content_session_id TEXT UNIQUE NOT NULL,
+      memory_session_id TEXT UNIQUE,
+      project TEXT NOT NULL,
+      started_at TEXT NOT NULL,
+      started_at_epoch INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'completed',
+      created_at_epoch INTEGER
+    );
+
     CREATE TABLE observations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       memory_session_id TEXT NOT NULL,
@@ -17,13 +41,10 @@ export function createTestMemDb(): SqliteDatabase {
       files_read TEXT,
       files_modified TEXT,
       created_at_epoch INTEGER NOT NULL,
-      project TEXT
-    );
-
-    CREATE TABLE sdk_sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      created_at_epoch INTEGER,
-      status TEXT DEFAULT 'completed'
+      created_at TEXT NOT NULL,
+      project TEXT,
+      FOREIGN KEY(memory_session_id) REFERENCES sdk_sessions(memory_session_id)
+        ON DELETE CASCADE ON UPDATE CASCADE
     );
 
     CREATE TABLE session_summaries (
@@ -49,9 +70,10 @@ export function createTestMemDb(): SqliteDatabase {
 
 /** Insert a test observation and return its ID */
 export function insertTestObservation(db: SqliteDatabase, obs: Partial<Observation> & { project?: string }): number {
+  const epoch = obs.created_at_epoch ?? Math.floor(Date.now() / 1000);
   const result = db.prepare(
-    `INSERT INTO observations (memory_session_id, type, title, narrative, text, facts, concepts, files_read, files_modified, created_at_epoch, project)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO observations (memory_session_id, type, title, narrative, text, facts, concepts, files_read, files_modified, created_at_epoch, created_at, project)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     obs.memory_session_id ?? "session-1",
     obs.type ?? "decision",
@@ -62,7 +84,8 @@ export function insertTestObservation(db: SqliteDatabase, obs: Partial<Observati
     obs.concepts ?? null,
     obs.files_read ?? null,
     obs.files_modified ?? null,
-    obs.created_at_epoch ?? Math.floor(Date.now() / 1000),
+    epoch,
+    obs.created_at ?? epochToIsoString(epoch),
     obs.project ?? "test-project"
   );
   return Number(result.lastInsertRowid);
