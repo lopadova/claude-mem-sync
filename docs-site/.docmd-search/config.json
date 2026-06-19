@@ -1,0 +1,7 @@
+{
+  "model": "Xenova/all-MiniLM-L6-v2",
+  "chunkSize": 512,
+  "chunkOverlap": 64,
+  "incremental": true,
+  "topK": 10
+}

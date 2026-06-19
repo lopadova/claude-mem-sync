@@ -2,6 +2,8 @@
 
 > Team memory sharing for [claude-mem](https://docs.claude-mem.ai) — sync AI memories across developers via git.
 
+[Official documentation](https://doc.claude-mem-sync.padosoft.com)
+
 ![github-banner-team-memory.png](resources/github-banner-team-memory.png)
 
 ![overview.png](resources/overview.png)
