@@ -5,60 +5,209 @@
   "src": "docs",
   "out": "_site",
   "base": "/",
-  "favicon": "assets/favicon.svg",
-  "theme": { "customCss": ["assets/custom.css"] },
+  "theme": {
+    "customCss": [
+      "assets/custom.css"
+    ]
+  },
   "layout": {
     "spa": true,
     "breadcrumbs": true,
-    "sidebar": { "collapsible": true, "defaultCollapsed": false },
-    "optionsMenu": { "position": "header", "components": { "search": true, "themeSwitch": true } }
+    "sidebar": {
+      "collapsible": true,
+      "defaultCollapsed": false
+    },
+    "optionsMenu": {
+      "position": "header",
+      "components": {
+        "search": true,
+        "themeSwitch": true
+      }
+    }
   },
   "plugins": {
-    "search": { "enabled": true, "semantic": true, "model": "Xenova/all-MiniLM-L6-v2", "chunkSize": 512, "chunkOverlap": 64, "indexDir": ".docmd-search", "showConfidence": true, "showFilters": false, "maxResults": 10 },
-    "git": { "repository": "https://github.com/lopadova/claude-mem-sync", "branch": "main" },
-    "seo": { "title": "claude-mem-sync", "description": "Public documentation for claude-mem-sync.", "image": "https://raw.githubusercontent.com/lopadova/claude-mem-sync/main/resources/github-banner-team-memory.png", "aiBots": true },
+    "search": {
+      "enabled": true,
+      "semantic": true,
+      "model": "Xenova/all-MiniLM-L6-v2",
+      "chunkSize": 512,
+      "chunkOverlap": 64,
+      "indexDir": ".docmd-search",
+      "showConfidence": true,
+      "showFilters": false,
+      "maxResults": 10
+    },
+    "git": {
+      "repository": "https://github.com/lopadova/claude-mem-sync",
+      "branch": "main"
+    },
+    "seo": {
+      "title": "claude-mem-sync",
+      "description": "Public documentation for claude-mem-sync.",
+      "image": "https://raw.githubusercontent.com/lopadova/claude-mem-sync/main/resources/github-banner-team-memory.png",
+      "aiBots": true
+    },
     "sitemap": {},
     "mermaid": {},
     "math": {},
     "llms": {},
-    "analytics": { "enabled": false }
+    "analytics": {
+      "enabled": false
+    }
   },
   "navigation": [
-    { "title": "Home", "path": "/", "icon": "home" },
-    { "title": "Get Started", "icon": "rocket", "children": [
-      { "title": "Quickstart", "path": "/get-started/quickstart", "icon": "zap" },
-      { "title": "Installation", "path": "/get-started/installation", "icon": "download" },
-      { "title": "Configuration", "path": "/get-started/configuration", "icon": "settings" }
-    ] },
-    { "title": "Guides", "icon": "map", "children": [
-      { "title": "First Team Repository", "path": "/guides/team-repository", "icon": "git-branch" },
-      { "title": "Export and Import", "path": "/guides/export-import", "icon": "repeat" },
-      { "title": "Dashboard", "path": "/guides/dashboard", "icon": "layout-dashboard" },
-      { "title": "Distillation", "path": "/guides/distillation", "icon": "sparkles" }
-    ] },
-    { "title": "Concetti & Teoria", "icon": "brain-circuit", "children": [
-      { "title": "Memory Sync Model", "path": "/concepts/memory-sync-model", "icon": "network" },
-      { "title": "Eviction and Scoring", "path": "/concepts/eviction-scoring", "icon": "gauge" },
-      { "title": "Profiles and Privacy", "path": "/concepts/profiles-privacy", "icon": "shield" }
-    ] },
-    { "title": "Architettura", "icon": "blocks", "children": [
-      { "title": "Overview", "path": "/architecture/overview", "icon": "boxes" },
-      { "title": "Pipeline and Workflow", "path": "/architecture/pipeline-workflow", "icon": "workflow" },
-      { "title": "ADRs", "path": "/architecture/adrs", "icon": "file-check" }
-    ] },
-    { "title": "Best Practices", "icon": "badge-check", "children": [
-      { "title": "Security and Privacy", "path": "/best-practices/security-privacy", "icon": "lock" },
-      { "title": "Filters and Governance", "path": "/best-practices/filters-governance", "icon": "filter" }
-    ] },
-    { "title": "Operations", "icon": "wrench", "children": [
-      { "title": "CI Merge", "path": "/operations/ci-merge", "icon": "git-merge" },
-      { "title": "Maintenance", "path": "/operations/maintenance", "icon": "database-zap" },
-      { "title": "Troubleshooting", "path": "/operations/troubleshooting", "icon": "circle-alert" }
-    ] },
-    { "title": "Reference", "icon": "book-open", "children": [
-      { "title": "CLI", "path": "/reference/cli", "icon": "terminal" },
-      { "title": "Config Schema", "path": "/reference/config-schema", "icon": "braces" },
-      { "title": "Repository Contract", "path": "/reference/repository-contract", "icon": "folder-git" }
-    ] }
-  ]
+    {
+      "title": "Home",
+      "path": "/",
+      "icon": "home"
+    },
+    {
+      "title": "Get Started",
+      "icon": "rocket",
+      "children": [
+        {
+          "title": "Quickstart",
+          "path": "/get-started/quickstart",
+          "icon": "zap"
+        },
+        {
+          "title": "Installation",
+          "path": "/get-started/installation",
+          "icon": "download"
+        },
+        {
+          "title": "Configuration",
+          "path": "/get-started/configuration",
+          "icon": "settings"
+        }
+      ]
+    },
+    {
+      "title": "Guides",
+      "icon": "map",
+      "children": [
+        {
+          "title": "First Team Repository",
+          "path": "/guides/team-repository",
+          "icon": "git-branch"
+        },
+        {
+          "title": "Export and Import",
+          "path": "/guides/export-import",
+          "icon": "repeat"
+        },
+        {
+          "title": "Dashboard",
+          "path": "/guides/dashboard",
+          "icon": "layout-dashboard"
+        },
+        {
+          "title": "Distillation",
+          "path": "/guides/distillation",
+          "icon": "sparkles"
+        }
+      ]
+    },
+    {
+      "title": "Concetti & Teoria",
+      "icon": "brain-circuit",
+      "children": [
+        {
+          "title": "Memory Sync Model",
+          "path": "/concepts/memory-sync-model",
+          "icon": "network"
+        },
+        {
+          "title": "Eviction and Scoring",
+          "path": "/concepts/eviction-scoring",
+          "icon": "gauge"
+        },
+        {
+          "title": "Profiles and Privacy",
+          "path": "/concepts/profiles-privacy",
+          "icon": "shield"
+        }
+      ]
+    },
+    {
+      "title": "Architettura",
+      "icon": "blocks",
+      "children": [
+        {
+          "title": "Overview",
+          "path": "/architecture/overview",
+          "icon": "boxes"
+        },
+        {
+          "title": "Pipeline and Workflow",
+          "path": "/architecture/pipeline-workflow",
+          "icon": "workflow"
+        },
+        {
+          "title": "ADRs",
+          "path": "/architecture/adrs",
+          "icon": "file-check"
+        }
+      ]
+    },
+    {
+      "title": "Best Practices",
+      "icon": "badge-check",
+      "children": [
+        {
+          "title": "Security and Privacy",
+          "path": "/best-practices/security-privacy",
+          "icon": "lock"
+        },
+        {
+          "title": "Filters and Governance",
+          "path": "/best-practices/filters-governance",
+          "icon": "filter"
+        }
+      ]
+    },
+    {
+      "title": "Operations",
+      "icon": "wrench",
+      "children": [
+        {
+          "title": "CI Merge",
+          "path": "/operations/ci-merge",
+          "icon": "git-merge"
+        },
+        {
+          "title": "Maintenance",
+          "path": "/operations/maintenance",
+          "icon": "database-zap"
+        },
+        {
+          "title": "Troubleshooting",
+          "path": "/operations/troubleshooting",
+          "icon": "circle-alert"
+        }
+      ]
+    },
+    {
+      "title": "Reference",
+      "icon": "book-open",
+      "children": [
+        {
+          "title": "CLI",
+          "path": "/reference/cli",
+          "icon": "terminal"
+        },
+        {
+          "title": "Config Schema",
+          "path": "/reference/config-schema",
+          "icon": "braces"
+        },
+        {
+          "title": "Repository Contract",
+          "path": "/reference/repository-contract",
+          "icon": "folder-git"
+        }
+      ]
+    }
+  ],
+  "favicon": "assets/favicon.svg"
 }
