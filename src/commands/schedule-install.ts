@@ -8,6 +8,8 @@ import { LOGS_DIR } from "../core/constants";
 import {
   getDefaultEntries,
   generateCrontabEntries,
+  generateSystemdService,
+  generateSystemdTimer,
   generateLaunchdPlist,
   generateSchtasksArgs,
 } from "../core/scheduler";
@@ -26,7 +28,9 @@ export default async function run(_args: ParsedArgs): Promise<void> {
   const platform = process.platform;
 
   if (platform === "linux") {
-    await installCron(entries);
+    const hasSystemd = (await spawnCommand(["systemctl", "--user", "show-environment"]).catch(() => null))?.exitCode === 0;
+    if (hasSystemd) await installSystemd(entries);
+    else await installCron(entries);
   } else if (platform === "darwin") {
     await installLaunchd(entries);
   } else if (platform === "win32") {
@@ -35,6 +39,27 @@ export default async function run(_args: ParsedArgs): Promise<void> {
     logger.error(`Unsupported platform: ${platform}. Install scheduled tasks manually.`);
     process.exit(1);
   }
+}
+
+async function installSystemd(entries: ReturnType<typeof getDefaultEntries>): Promise<void> {
+  const unitDir = join(homedir(), ".config", "systemd", "user");
+  mkdirSync(unitDir, { recursive: true });
+
+  for (const entry of entries) {
+    writeFileSync(join(unitDir, `${entry.name}.service`), generateSystemdService(entry), "utf-8");
+    writeFileSync(join(unitDir, `${entry.name}.timer`), generateSystemdTimer(entry), "utf-8");
+  }
+
+  await spawnCommand(["systemctl", "--user", "daemon-reload"]);
+  for (const entry of entries) {
+    const result = await spawnCommand(["systemctl", "--user", "enable", "--now", `${entry.name}.timer`]);
+    if (result.exitCode !== 0) logger.error(`Failed to enable ${entry.name}.timer: ${result.stderr}`);
+    else console.log(`Enabled systemd timer: ${entry.name}.timer`);
+  }
+
+  console.log("\nScheduled tasks installed via systemd user timers.");
+  console.log("List: systemctl --user list-timers 'claude-mem-sync-*'");
+  console.log("Note: git over SSH needs SSH_AUTH_SOCK (or a passphrase-less key) in the user manager.");
 }
 
 async function installCron(entries: ReturnType<typeof getDefaultEntries>): Promise<void> {
