@@ -721,6 +721,7 @@ Created by `mem-sync init` or manually. See `templates/config.example.json` for 
 | `remote.branch` | string | `"main"` | Branch to push/pull |
 | `remote.autoMerge` | boolean | `true` | Push directly or create PR/MR |
 | `remote.host` | string | auto | Custom host for self-hosted instances (e.g., `git.company.com`) |
+| `remote.protocol` | `"https"` \| `"ssh"` | `"https"` | Clone/push over HTTPS or SSH (`git@host:owner/repo.git`, uses your SSH keys) |
 | `export.types` | string[] | `[]` | Observation types to export |
 | `export.keywords` | string[] | `[]` | Keywords to match |
 | `export.tags` | string[] | `[]` | Tags to match (e.g., `#shared`) |

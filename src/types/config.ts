@@ -37,6 +37,7 @@ export const RemoteConfigSchema = z.object({
   branch: z.string().default("main"),
   autoMerge: z.boolean().default(true),
   host: z.string().optional(),
+  protocol: z.enum(["https", "ssh"]).default("https"),
 });
 
 export const ProjectConfigSchema = z.object({

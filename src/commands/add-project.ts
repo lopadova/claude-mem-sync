@@ -71,6 +71,9 @@ export default async function run(_args: ParsedArgs): Promise<void> {
       return;
     }
 
+    const protocolAnswer = await ask("Clone protocol (https/ssh)", "https");
+    const protocol = protocolAnswer.toLowerCase() === "ssh" ? "ssh" : "https";
+
     const hostAnswer = providerType !== "github"
       ? await ask(`Host (leave blank for ${providerType}.com)`)
       : "";
@@ -101,6 +104,7 @@ export default async function run(_args: ParsedArgs): Promise<void> {
         branch: branchName,
         autoMerge,
         ...(host ? { host } : {}),
+        protocol,
       },
       export: {
         types,
