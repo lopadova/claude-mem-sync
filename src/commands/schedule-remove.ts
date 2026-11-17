@@ -16,6 +16,7 @@ export default async function run(_args: ParsedArgs): Promise<void> {
   const platform = process.platform;
 
   if (platform === "linux") {
+    await removeSystemd();
     await removeCron();
   } else if (platform === "darwin") {
     await removeLaunchd();
@@ -27,8 +28,26 @@ export default async function run(_args: ParsedArgs): Promise<void> {
   }
 }
 
+async function removeSystemd(): Promise<void> {
+  const unitDir = join(homedir(), ".config", "systemd", "user");
+  let removed = false;
+
+  for (const name of TASK_NAMES) {
+    const timer = join(unitDir, `${name}.timer`);
+    const service = join(unitDir, `${name}.service`);
+    if (!existsSync(timer) && !existsSync(service)) continue;
+    await spawnCommand(["systemctl", "--user", "disable", "--now", `${name}.timer`]);
+    for (const f of [timer, service]) if (existsSync(f)) unlinkSync(f);
+    console.log(`Removed systemd units: ${name}`);
+    removed = true;
+  }
+
+  if (removed) await spawnCommand(["systemctl", "--user", "daemon-reload"]);
+}
+
 async function removeCron(): Promise<void> {
-  const result = await spawnCommand(["crontab", "-l"]);
+  const result = await spawnCommand(["crontab", "-l"]).catch(() => null);
+  if (!result) return; // no crontab binary
 
   // Remove all claude-mem-sync entries
   const filtered = result.stdout

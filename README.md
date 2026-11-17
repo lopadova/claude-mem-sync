@@ -86,7 +86,7 @@ Developer A                    GitHub (shared repo)              Developer B
 - **Intelligent eviction** — scoring system prevents unbounded DB growth
 - **Deduplication** — composite key dedup across developers
 - **Access tracking** — PostToolUse hook tracks which memories Claude actually uses
-- **Cross-platform scheduling** — automatic export/import via cron, launchd, or Task Scheduler
+- **Cross-platform scheduling** — automatic export/import via systemd timers, cron, launchd, or Task Scheduler
 - **PR review mode** — optional human review before memories enter the shared repo
 - **Multi-provider support** — GitHub, GitLab, and Bitbucket (including self-hosted)
 - **CI merge bot** — templates for GitHub Actions, GitLab CI, and Bitbucket Pipelines
@@ -645,6 +645,7 @@ Instead of running `mem-sync export` and `mem-sync import` manually, you can sch
 
 ```bash
 # Detect your OS and install scheduled tasks
+# (Linux: systemd user timers when available, otherwise cron)
 mem-sync schedule install
 
 # To remove them later

@@ -337,3 +337,50 @@ export function generateSchtasksRemoveCommand(taskName: string): string {
 export function generateSchtasksRemoveArgs(taskName: string): string[] {
   return ["/delete", "/tn", taskName, "/f"];
 }
+
+// ---------------------------------------------------------------------------
+// Linux — systemd user timers
+// ---------------------------------------------------------------------------
+
+const SYSTEMD_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** systemd OnCalendar expression for a schedule entry. */
+export function toOnCalendar(sched: ParsedSchedule | MaintenanceSchedule): string {
+  const time = `${String(sched.hour).padStart(2, "0")}:${String(sched.minute).padStart(2, "0")}:00`;
+  if ("frequency" in sched) {
+    // biweekly is treated as weekly, same as the other backends
+    return sched.frequency === "monthly"
+      ? `*-*-${String(sched.dayOfMonth).padStart(2, "0")} ${time}`
+      : `Sun *-*-* ${time}`;
+  }
+  return sched.dayOfWeek === null
+    ? `*-*-* ${time}`
+    : `${SYSTEMD_DAYS[sched.dayOfWeek]} *-*-* ${time}`;
+}
+
+export function generateSystemdService(entry: ScheduleEntry): string {
+  // ExecStart needs an absolute path; env resolves mem-sync from the user manager's PATH
+  return `[Unit]
+Description=${entry.name}
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env ${entry.command} ${entry.args.join(" ")}
+StandardOutput=append:${entry.logFile}
+StandardError=append:${entry.logFile}
+`;
+}
+
+export function generateSystemdTimer(entry: ScheduleEntry): string {
+  // Persistent=true: run missed jobs on next start (e.g. WSL was down)
+  return `[Unit]
+Description=${entry.name} schedule
+
+[Timer]
+OnCalendar=${toOnCalendar(entry.schedule)}
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+`;
+}
