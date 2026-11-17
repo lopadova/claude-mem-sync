@@ -14,9 +14,10 @@ const DEFAULT_HOSTS: Record<string, string> = {
   bitbucket: "bitbucket.org",
 };
 
-/** Build the HTTPS clone URL for a given provider + repo. */
+/** Build the clone URL (HTTPS by default, SCP-style SSH when protocol is "ssh"). */
 export function buildCloneUrl(remote: RemoteConfig): string {
   const host = remote.host ?? DEFAULT_HOSTS[remote.type] ?? DEFAULT_HOSTS.github;
+  if (remote.protocol === "ssh") return `git@${host}:${remote.repo}.git`;
   return `https://${host}/${remote.repo}.git`;
 }
 
