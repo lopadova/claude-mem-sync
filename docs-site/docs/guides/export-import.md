@@ -30,8 +30,4 @@ Use `remote.autoMerge: false` until filters and review policy are validated.
 
 ## Incremental export
 
-Each export writes only observations that are not already in your newest contribution file for that project. If nothing is new, no file and no commit is created, so scheduled exports stay quiet.
-
-::: callout note "After the inbox is purged"
-If CI has already deleted your last contribution file, the next export has nothing to compare against and writes your full filtered set once.
-:::
+Each export writes only observations that are in neither your newest contribution file for that project nor `merged/<project>/latest.json`. If nothing is new, no file and no commit is created, so scheduled exports stay quiet.

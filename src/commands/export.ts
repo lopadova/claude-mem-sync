@@ -95,7 +95,11 @@ async function exportProject(
     const repoDir = await shallowClone(resolved.remote);
     try {
     const devDir = join(repoDir, "contributions", projectName, config.global.devName);
-    const delta = newSinceLastExport(devDir, filtered);
+    const delta = newSinceLastExport(
+      devDir,
+      join(repoDir, "merged", projectName, "latest.json"),
+      filtered,
+    );
     if (delta.length === 0) {
       console.log(`\nNo new observations for "${projectName}". Nothing to push.`);
       return;

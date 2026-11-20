@@ -4,19 +4,31 @@ import type { Observation } from "../types/observation";
 
 const key = (o: Observation) => `${o.memory_session_id}|${o.title}|${o.created_at_epoch}`;
 
-/**
- * Observations not present in the newest contribution file of `devDir`
- * (filenames are sortable timestamps). No/unreadable file => everything is new.
- */
-export function newSinceLastExport(devDir: string, observations: Observation[]): Observation[] {
-  if (!existsSync(devDir)) return observations;
-  const last = readdirSync(devDir).filter((f) => f.endsWith(".json")).sort().at(-1);
-  if (!last) return observations;
+function keysOf(file: string): Set<string> {
   try {
-    const prev = JSON.parse(readFileSync(join(devDir, last), "utf-8"));
-    const seen = new Set((prev.observations as Observation[]).map(key));
-    return observations.filter((o) => !seen.has(key(o)));
+    const parsed = JSON.parse(readFileSync(file, "utf-8"));
+    return new Set((parsed.observations as Observation[]).map(key));
   } catch {
-    return observations; // self-heal: unreadable last file => re-export
+    return new Set(); // missing/unreadable => nothing known (self-heal: re-export)
   }
+}
+
+/**
+ * Observations not in the newest contribution file of `devDir` (sortable timestamp
+ * filenames) nor in the merged file. Merged is included so CI purging the last
+ * contribution file never causes a full re-export.
+ */
+export function newSinceLastExport(
+  devDir: string,
+  mergedFile: string,
+  observations: Observation[],
+): Observation[] {
+  const last = existsSync(devDir)
+    ? readdirSync(devDir).filter((f) => f.endsWith(".json")).sort().at(-1)
+    : undefined;
+  const known = new Set([
+    ...(last ? keysOf(join(devDir, last)) : []),
+    ...(existsSync(mergedFile) ? keysOf(mergedFile) : []),
+  ]);
+  return observations.filter((o) => !known.has(key(o)));
 }
