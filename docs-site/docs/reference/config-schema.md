@@ -8,7 +8,9 @@
 | `claudeMemDbPath` | string | `~/.claude-mem/claude-mem.db` |
 | `evictionStrategy` | `hook` or `passive` | `passive` |
 | `mergeCapPerProject` | number | `500` |
-| `exportSchedule` | string | `friday:16:00` |
+| `exportSchedule` | string: `day:HH:MM` (day is a weekday or `everyday`), `hourly`, or `hourly:MM` | `friday:16:00` |
+
+With `hourly` or `hourly:MM`, export runs every hour at that minute (default `:00`) and import runs 30 minutes later. Re-run `mem-sync schedule install` after changing the schedule.
 
 ## Project fields
 

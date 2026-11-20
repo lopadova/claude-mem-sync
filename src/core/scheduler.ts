@@ -10,6 +10,8 @@ export interface ParsedSchedule {
   dayOfWeek: number | null; // 0=Sunday, 1=Monday, ..., 6=Saturday, null=everyday
   hour: number;
   minute: number;
+  /** Fire every hour at `minute` (`hour`/`dayOfWeek` ignored). Written as "hourly" or "hourly:MM". */
+  hourly?: boolean;
 }
 
 const DAY_MAP: Record<string, number | null> = {
@@ -28,6 +30,13 @@ const DAY_MAP: Record<string, number | null> = {
  */
 export function parseSchedule(schedule: string): ParsedSchedule {
   const parts = schedule.toLowerCase().split(":");
+  if (parts[0] === "hourly" && parts.length <= 2) {
+    const minute = Number(parts[1] ?? 0);
+    if (!Number.isInteger(minute) || minute < 0 || minute > 59) {
+      throw new Error(`Invalid minute "${parts[1]}" in schedule. Expected 0-59.`);
+    }
+    return { dayOfWeek: null, hour: 0, minute, hourly: true };
+  }
   if (parts.length !== 3) {
     throw new Error(`Invalid schedule format: "${schedule}". Expected "day:HH:MM".`);
   }
@@ -63,6 +72,10 @@ export function parseSchedule(schedule: string): ParsedSchedule {
  * If the export is daily, import is also daily at 09:00.
  */
 export function getImportSchedule(exportSchedule: ParsedSchedule): ParsedSchedule {
+  if (exportSchedule.hourly) {
+    // Half an hour after export, so CI has had time to merge
+    return { dayOfWeek: null, hour: 0, minute: (exportSchedule.minute + 30) % 60, hourly: true };
+  }
   if (exportSchedule.dayOfWeek === null) {
     return { dayOfWeek: null, hour: 9, minute: 0 };
   }
@@ -172,6 +185,8 @@ export function generateCrontabEntry(entry: ScheduleEntry): string {
     return `${sched.minute} ${sched.hour} * * 0 ${cmdLine}`;
   }
 
+  if (sched.hourly) return `${sched.minute} * * * * ${cmdLine}`;
+
   if (sched.dayOfWeek === null) {
     // Daily
     return `${sched.minute} ${sched.hour} * * * ${cmdLine}`;
@@ -224,6 +239,12 @@ export function generateLaunchdPlist(entry: ScheduleEntry): string {
     <key>Minute</key><integer>${sched.minute}</integer>
   </dict>`;
     }
+  } else if (sched.hourly) {
+    // Hourly: omit Hour (and Weekday) so it fires every hour at Minute
+    calendarInterval = `  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Minute</key><integer>${sched.minute}</integer>
+  </dict>`;
   } else if (sched.dayOfWeek === null) {
     // Daily: omit Weekday key, just Hour+Minute
     calendarInterval = `  <key>StartCalendarInterval</key>
@@ -293,6 +314,10 @@ export function generateSchtasksCommand(entry: ScheduleEntry): string {
     return `schtasks /create /tn "${safeName}" /tr "${tr}" /sc weekly /d SUN /st ${time} /rl LIMITED /f`;
   }
 
+  if (sched.hourly) {
+    return `schtasks /create /tn "${safeName}" /tr "${tr}" /sc hourly /st ${time} /rl LIMITED /f`;
+  }
+
   if (sched.dayOfWeek === null) {
     return `schtasks /create /tn "${safeName}" /tr "${tr}" /sc daily /st ${time} /rl LIMITED /f`;
   }
@@ -317,6 +342,10 @@ export function generateSchtasksArgs(entry: ScheduleEntry): string[] {
       return [...base, "/sc", "monthly", "/d", String(sched.dayOfMonth)];
     }
     return [...base, "/sc", "weekly", "/d", "SUN"];
+  }
+
+  if (sched.hourly) {
+    return [...base, "/sc", "hourly"];
   }
 
   if (sched.dayOfWeek === null) {
